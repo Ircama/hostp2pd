@@ -8,7 +8,7 @@ import logging
 import time
 
 #########################################################################
-white_list = [ 'Cellulare di servizio' ]
+white_list = [ '......' ]
 find_refresh = 20 # seconds
 group_root = 'p2p-wlan0-'
 logging.basicConfig(level=logging.INFO)
