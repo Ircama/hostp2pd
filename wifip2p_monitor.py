@@ -7,12 +7,39 @@ import signal
 import logging
 import time
 
-#########################################################################
-white_list = [ '......' ]
+################# start of configuration ################################
 find_refresh = 20 # seconds
 group_root = 'p2p-wlan0-'
+
+password = '00000000' # The pin must be of 8 digits
+white_list = [ 'sample of name of the client device' ]
+# Dynamic method: unset use_conn_str; static method: set use_conn_str
+use_conn_str = 'virtual_push_button' # unset "use_conn_str" to use "config_methods"
+connection_string = 'pbc'
+config_methods = 'virtual_push_button keypad' # not used if use_conn_str is set
+
 logging.basicConfig(level=logging.INFO)
-#########################################################################
+
+# Fixed password method without wihite_list:
+# in password, the pin must be of 8 digits,
+# connection_string shall add the 'display' label,
+# config_methods must be set to 'keypad'.
+# Autologin method with wihite_list:
+# config_methods must be set to 'virtual_push_button'.
+
+# Examples of configuration with "use_conn_str" static method:
+# - Fixed password method without wihite_list
+#   Connection_string shall add the 'display' label,
+#   Config_methods must be set to 'keypad'.
+#use_conn_str = 'keypad'
+#connection_string = password + ' display'
+#white_list = []
+# - Autologin method with wihite_list
+#   Config_methods must be set to 'virtual_push_button'
+#use_conn_str = 'virtual_push_button'
+#connection_string = 'pbc'
+#white_list = [ 'Cellulare di servizio' ]
+################# end of configuration ##################################
 
 
 def start(executable_file):
@@ -27,7 +54,7 @@ def start(executable_file):
 
 
 def timeout(sig, frm):
-    logging.debug("send p2p_find")
+    logging.info("send p2p_find")
     write(process, "p2p_find")
     signal.alarm(find_refresh)
 
@@ -53,7 +80,7 @@ def remove_group(process):
     write(process, "interface")
     while True:
         interf = read(process)
-        logging.debug("DEBUG %s", interf)
+        logging.debug("Reading '%s'", interf)
         if 'interface' in interf:
             continue
         if '>' in interf:
@@ -61,26 +88,38 @@ def remove_group(process):
         if group_root in interf and not '>' in interf:
             write(process, "p2p_group_remove " + interf)                
             monitor_group = ''
-            logging.info("removed %s", interf)
+            logging.warning("removed %s", interf)
             time.sleep(2)
-            write(process, "p2p_connect " + monitor_address + " pbc")
+            if address_cs == arg or use_conn_str:
+                write(process, "p2p_connect " + address_cs + " " + connection_string)
+                logging.warning('Connection request (' + connection_string + ')')
+            else:
+                if address_pwd:
+                    write(process, "p2p_connect " + address_pwd + " " + password + ' display')
+                    logging.warning('Connection request (password): %s', address_pwd)
         if interf == 'OK':
             break
     force_remove_group = 0
 
 
+if use_conn_str:
+    default_config_methods = use_conn_str
+else:
+    default_config_methods = config_methods
+
 process = start(["stdbuf", "-oL", 'wpa_cli', '-i', 'p2p-dev-wlan0'])
-write(process, "wps_pbc")
+write(process, "set config_methods " + default_config_methods)
 write(process, "p2p_find")
 
-monitor_address = ''
+address_pwd = ''
+address_cs = ''
 monitor_group = ''
 signal.signal(signal.SIGALRM, timeout)
 force_remove_group = 1
+logging.warning('Service started')
 
 while True:
     wpa_cli = read(process)
-    #logging.debug("TRACE %s", wpa_cli)
     wpa_cli_l = wpa_cli.split()
     if len(wpa_cli_l) == 0:
         continue
@@ -100,55 +139,85 @@ while True:
     if token == 'CTRL-EVENT-SCAN-STARTED':
         continue
     logging.debug("TRACE %s", wpa_cli)
-    if token == 'P2P-DEVICE-FOUND':
+    if "wpa_supplicant" in wpa_cli:
+        logging.warning(wpa_cli)
+    if "Connection established" in wpa_cli:
+        logging.warning(wpa_cli)
+    if token == 'P2P-DEVICE-FOUND' and arg:
         if name in white_list:
-            monitor_address = arg
-            #write(process, "p2p_connect " + monitor_address + " pbc")
-        logging.debug('P2P-DEVICE-FOUND %s', monitor_address)
+            address_cs = arg
+            if not use_conn_str:
+                write(process, "set config_methods virtual_push_button")
+            logging.info('Found device "%s": %s', name, address_cs)
+        else:
+            logging.debug('Found unknown device "%s"', arg)
         continue
     if token == 'P2P-FIND-STOPPED':
         #write(process, "p2p_find")
         # commented out because might not allow connection when P2P-FIND-STOPPED is received just after a p2p_connect
         continue
-    if token == 'P2P-DEVICE-LOST':
-        logging.debug('P2P-DEVICE-LOST')
+    if token == 'P2P-DEVICE-LOST' and arg and address_cs == arg:
+        logging.info('P2P-DEVICE-LOST')
+        write(process, "p2p_find")
         continue
     if token == 'WPS-TIMEOUT':
-        logging.debug('WPS-TIMEOUT')
+        logging.info('WPS-TIMEOUT')
         continue
-    if (token == 'P2P-GO-NEG-REQUEST' or token == 'P2P-PROV-DISC-PBC-REQ') and monitor_address == arg:
-        if force_remove_group:
-            remove_group(process)
-        write(process, "p2p_connect " + monitor_address + " pbc")
-        logging.info('Connection request')
-        continue
-    if token == 'P2P-GROUP-STARTED':
+    if (token == 'P2P-GO-NEG-REQUEST' or token == 'P2P-PROV-DISC-PBC-REQ') and arg:
+        if address_cs == arg or use_conn_str:
+            if force_remove_group:
+                remove_group(process)
+            write(process, "p2p_connect " + address_cs + " " + connection_string)
+            logging.warning('Connection request (' + connection_string + ')')
+            continue
+        else:
+            address_pwd = arg
+            if not use_conn_str:
+                write(process, "set config_methods keypad")
+            write(process, "p2p_connect " + address_pwd + " " + password + ' display')
+            logging.warning('Connection request (password): %s', address_pwd)
+            continue
+    if token == 'P2P-GROUP-STARTED' and arg:
         monitor_group = arg
-        logging.debug('P2P-GROUP-STARTED %s', monitor_group)
+        logging.info('P2P-GROUP-STARTED %s', monitor_group)
+        continue
+    if token == 'P2P-PROV-DISC-SHOW-PIN' and len(wpa_cli_l) > 2:
+        logging.warning('Show PIN %s for %s', wpa_cli_l[2], wpa_cli_l[1])
+        if name in white_list:
+            address_cs = arg
+            if not use_conn_str:
+                write(process, "set config_methods virtual_push_button")
+            logging.info('Found device "%s": %s', name, address_cs)
+        else:
+            logging.info('Found unknown device "%s"', address_cs)
         continue
     if token == 'P2P-GROUP-REMOVED':
-        logging.debug('P2P-GROUP-REMOVED')
+        logging.info('P2P-GROUP-REMOVED')
         continue
     if token == 'P2P-GROUP-STARTED':
-        logging.debug('P2P-GROUP-STARTED')
+        logging.info('P2P-GROUP-STARTED')
         continue
     if token == 'AP-STA-CONNECTED':
-        logging.info('Access point station CONNECTED')
+        logging.warning('Access point station CONNECTED')
         continue
     if token == 'AP-STA-DISCONNECTED':
-        logging.info('Access point station disconnected')
+        logging.warning('Access point station disconnected')
         if monitor_group:
             write(process, "p2p_group_remove " + monitor_group)
             monitor_group = ''
         else:
             remove_group(process)
+        time.sleep(1)
         write(process, "p2p_find")
-        #monitor_address = ''
+        #address_cs = ''
         force_remove_group = 0
         continue
     if token == 'FAIL':
-        logging.debug('FAIL')
+        logging.info('FAIL')
         remove_group(process)
         continue
+    if token == 'CTRL-EVENT-TERMINATING':
+        logging.warning('Service terminated')
+        break
 
 terminate(process)
