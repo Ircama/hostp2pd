@@ -8,7 +8,7 @@ import logging
 import time
 
 ################# start of configuration ################################
-find_refresh = 20 # seconds to send 
+find_refresh = 20 # period in seconds to send p2p_find refreshes
 p2p_interface = 'p2p-dev-wlan0'
 p2p_client = 'wpa_cli'
 group_root = 'p2p-wlan0-'
