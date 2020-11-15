@@ -8,17 +8,19 @@ import logging
 import time
 
 ################# start of configuration ################################
-find_refresh = 20 # seconds
+find_refresh = 20 # seconds to send 
+p2p_interface = 'p2p-dev-wlan0'
+p2p_client = 'wpa_cli'
 group_root = 'p2p-wlan0-'
 
 password = '00000000' # The pin must be of 8 digits
-white_list = [ 'sample of name of the client device' ]
+white_list = [ '<replace with the name of the client>' ]
 # Dynamic method: unset use_conn_str; static method: set use_conn_str
 use_conn_str = 'virtual_push_button' # unset "use_conn_str" to use "config_methods"
 connection_string = 'pbc'
 config_methods = 'virtual_push_button keypad' # not used if use_conn_str is set
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 # Fixed password method without wihite_list:
 # in password, the pin must be of 8 digits,
@@ -107,7 +109,7 @@ if use_conn_str:
 else:
     default_config_methods = config_methods
 
-process = start(["stdbuf", "-oL", 'wpa_cli', '-i', 'p2p-dev-wlan0'])
+process = start(["stdbuf", "-oL", p2p_client, '-i', p2p_interface])
 write(process, "set config_methods " + default_config_methods)
 write(process, "p2p_find")
 
