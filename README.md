@@ -106,7 +106,10 @@ cd ../
 cd hostapd
 cp defconfig .config
 echo "CONFIG_P2P_MANAGER=y" >> .config
+echo "CONFIG_P2P=y" >> .config
 echo "CONFIG_LIBNL3_ROUTE=y" >> .config
 make
 #sudo make install
 ```
+
+Note to `CONFIG_P2P_MANAGER=y`: useless setting: current *hostapd* configuration (ref. version <=2.10) does not seem to really support Wi-Fi Direct (while *wpa_supplicant* supports it).
