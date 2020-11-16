@@ -1,10 +1,10 @@
 __WiFi-Direct Connection Manager__
 
-This basic program interfaces [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) via [wpa_cli](https://jlk.fjfi.cvut.cz/arch/manpages/man/wpa_cli.8), running *wpa_cli* in background and piping [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) to it, while reading events, in order to fully automate the workflow of a P2P AP server based on *wpa_supplicant* that manages connections of a single P2P client in [WiFi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode.
+This basic program interfaces [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) via [wpa_cli](https://jlk.fjfi.cvut.cz/arch/manpages/man/wpa_cli.8), running *wpa_cli* in background and piping [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) to it, while reading events, in order to fully automate the workflow of a P2P [AP](https://en.wikipedia.org/wiki/Wireless_access_point) server based on *wpa_supplicant* that manages connections of a single P2P client in [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) mode.
 
 Run with `python3 wifip2p_monitor.py`.
 
-Tested with an Android client connecting a Raspberry Pi with WiFi Direct protocol.
+Tested with an Android client connecting a Raspberry Pi with Wi-Fi Direct protocol.
 
 Related configuration is in the program configuration section. The program allows two execution modes:
 
@@ -15,7 +15,7 @@ The default is to use *pbc* in static configuration. To convert the mode to dyna
 
 Logging is controlled by `logging.basicConfig(level=...)`. Default is *logging.WARNING* for minimal logging. Set it to *logging.INFO* or *logging.DEBUG* to increase logging.
 
-To configure WiFi Direct on a Raspberry Pi, follow [this link](https://raspberrypi.stackexchange.com/q/117238/126729).
+To configure Wi-Fi Direct on a Raspberry Pi, follow [this link](https://raspberrypi.stackexchange.com/q/117238/126729).
 
 Check that *wpa_supplicant-wlan0.conf* includes the following headers:
 
@@ -74,6 +74,8 @@ Event *CTRL-EVENT-TERMINATING* terminates the program.
 Notice that *pbc* method does not ask a password to the client, and so needs whitelisting. With fixed password method, an Android client will not save the password (it has to be inserted on every connection). Notice also that any password different from eight digits is not accepted by *wpa_supplicant*.
 
 Even if the process handles `P2P-PROV-DISC-SHOW-PIN` event, related configuration is not fully tested yet.
+
+To start a Wi-Fi Direct connection with Android and connect a Raspberry Pi AP, tap Settings > Wi-Fi > Advanced settings > Wi-Fi Direct and wait for the Raspberry Pi peer device to appear. Select it and wait for connection established. Notice that through this process, the mobile/cellular connection is not disabled with the Wi-Fi Direct connection is active.
 
 _______________
 
