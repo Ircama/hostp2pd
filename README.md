@@ -91,7 +91,7 @@ sudo /sbin/wpa_supplicant -c/etc/wpa_supplicant/wpa_supplicant-wlan0.conf -Dnl80
 
 _Compiling *hostapd* and *wpa_supplicant* on a Raspberry Pi_
 
-Standard distribution already include updated wpa_supplicant processes. Anyway for information the following steps allow compiling the latest version and obtaining *wpa_supplicanté,  *wpa_cli*, *hostapd*, *hostapd_cli*.
+Standard distribution already include updated wpa_supplicant processes. Anyway for information the following steps allow compiling the latest version and obtaining *wpa_supplicant*,  *wpa_cli*, *hostapd*, *hostapd_cli*.
 
 ```bash
 git clone git://w1.fi/srv/git/hostap.git
