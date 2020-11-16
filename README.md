@@ -75,7 +75,7 @@ Notice that *pbc* method does not ask a password to the client, and so needs whi
 
 Even if the process handles `P2P-PROV-DISC-SHOW-PIN` event, related configuration is not fully tested yet.
 
-To start a Wi-Fi Direct connection with Android and connect a Raspberry Pi AP, tap Settings > Wi-Fi > Advanced settings > Wi-Fi Direct and wait for the Raspberry Pi peer device to appear. Select it and wait for connection established. Notice that through this process, the mobile/cellular connection is not disabled with the Wi-Fi Direct connection is active.
+To start a Wi-Fi Direct connection with Android and connect a Raspberry Pi AP, tap Settings > Wi-Fi > Advanced settings > Wi-Fi Direct and wait for the Raspberry Pi peer device to appear. Select it and wait for connection established. Notice that through this process, the mobile/cellular connection is not disabled while the Wi-Fi Direct connection is active.
 
 _______________
 
