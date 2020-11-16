@@ -67,7 +67,7 @@ This process also supports the fixed password method (instead of using *pbc*):
 
 In both cases, if the `p2p_connect` fails (`FAIL` event), perform `interface` to list the already registered groups and delete them one by one with `p2p_group_remove`.
 
-In all cases, run `p2p_find` every 20 seconds (but delays it while connecting, because any command just after a p2p_connect disable the connection setup). Also a `P2P-DEVICE-LOST` event produces a `p2p_find` command (as well as `AP-STA-DISCONNECTED <addr>` event).
+In all cases, run `p2p_find` every 20 seconds (but delays it while connecting, because any command just after a *p2p_connect* disables the connection setup). Also a `P2P-DEVICE-LOST` event produces a `p2p_find` command (as well as `AP-STA-DISCONNECTED <addr>` event).
 
 Event *CTRL-EVENT-TERMINATING* terminates the program.
 
