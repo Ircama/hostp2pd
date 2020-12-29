@@ -3,11 +3,11 @@ hostp2pd
 
 __The Wi-Fi Direct Session Manager__
 
-*hostp2pd* implements a soft host [Access Point](https://en.wikipedia.org/wiki/Wireless_access_point) (AP) user space [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) software in [Wi-Fi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode, enabling a [wireless network interface card](https://en.wikipedia.org/wiki/Wireless_network_interface_controller) to act as *Ad hoc* access point and [Wi-Fi Protected Setup](https://en.wikipedia.org/wiki/Wi-Fi_Protected_Setup) (WPS) [authentication server](https://en.wikipedia.org/wiki/Authentication_server). It has very basic functionalities roughly similar to [hostapd](https://en.wikipedia.org/wiki/Hostapd) (with its [hostapd.conf](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) configuration file), which is the widely adopted and higly functional AP software, generally used for infrastructure mode networking.
+*hostp2pd* implements a soft host [Access Point](https://en.wikipedia.org/wiki/Wireless_access_point) (AP) user space [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) software in [Wi-Fi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode, enabling a [wireless network interface card](https://en.wikipedia.org/wiki/Wireless_network_interface_controller) to act as *Ad hoc* access point and [Wi-Fi Protected Setup](https://en.wikipedia.org/wiki/Wi-Fi_Protected_Setup) (WPS) [authentication server](https://en.wikipedia.org/wiki/Authentication_server). It has very basic functionalities roughly similar to [hostapd](https://en.wikipedia.org/wiki/Hostapd) (with its [hostapd.conf](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) configuration file), which is the widely adopted and higly functional AP software, generally used for infrastructure mode networking. When implementing a P2P persistent group, *wpa_supplicant* offers the P2P-GO features enabled by *hostp2pd* to connect P2P Clients like Android smartphones, as well as provide the standard infrastructure AP mode to the same P2P-GO group, without the need of *hostapd*.
 
-*hostp2pd* accepts [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients and activates a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner). It fully relies on [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) to manage Wi-Fi Direct networking and it interfaces *wpa_supplicant* through its [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
+*hostp2pd* accepts [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients and activates a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner). It fully relies on [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) to manage Wi-Fi Direct networking and it interfaces *wpa_supplicant* through [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
 
-*hostp2pd* enables *wpa_supplicant* to accept Wi-Fi Direct connections from P2P Clients, including for instance Android smartphones, as well as to manage standard infrastructure mode AP connections to the same P2P-GO group. It includes a command-line interface mode for monitoring and controlling, can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
+*hostp2pd* includes a command-line interface mode for monitoring and controlling; it can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
 
 # Connecting via Wi-Fi Direct with Android devices
 
@@ -136,7 +136,7 @@ device_name=DIRECT-test                                 # this is the P2P name s
 device_type=6-0050F204-1                                # (Network Infrastructure / AP)
 config_methods=keypad                                   # keypad uses a fixed password on UNIX, which is asked from a keypad popped up on the Android devices
 p2p_go_intent=15                                        # force UNIX to become a P2P-GO (Group Owner)
-persistent_reconnect=1                                  # allow reconnecting to a persistent group without asking a password
+persistent_reconnect=1                                  # allow reconnecting to a persistent group without user acknowledgement
 p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
 country=<country ID>                                    # Use your country code here
 
@@ -295,10 +295,13 @@ In standard group creation, the UNIX device negotiates a group on demand. In aut
 
 The following use cases are allowed:
 
-- `activate_persistent_group: False`, `dynamic_gropus: True`, no persistent group defined in *wpa_supplicant.conf*: P2P Group formation method using negotiation with standard groups (which are dynamically created and removed): no group is created at startup; the first client connection performs the P2P group formation; the group is removed after the client disconnection.
-- `activate_persistent_group: False`, `dynamic_gropus: False`, no persistent group defined in *wpa_supplicant.conf*: P2P Group Formation using Autonomous GO Method, configuring an autonomous group activated at startup.
-- `activate_persistent_group: False`, `dynamic_gropus: False`, with persistent group defined in *wpa_supplicant.conf*: Persistent group activated at the first access
-- `activate_persistent_group: True`, `dynamic_gropus: False`, with persistent group defined in *wpa_supplicant.conf*: Persistent group activated at startup. This is the suggested method
+Group Formation technique|Configuration|Description
+-------------------------|-------------|-----------
+Standard|`activate_persistent_group: False`, `dynamic_gropus: True`|P2P Group formation method using negotiation where the UNIX System will always become GO of a standard non-persistent group (ref. `p2p_go_intent=15` in *wpa_supplicant.conf*); groups are dynamically created and removed by *hostp2pd* via `p2p_connect`; in other terms, no group is created at startup and the first client connection performs the P2P group formation; besides, the group is removed upon client disconnection. The related virtual network interface is activated only on demand and the related device driver resource is released when not in use.
+Autonomous|`activate_persistent_group: False`, `dynamic_gropus: False`|P2P Group Formation using Autonomous GO Method, configuring a non-persistent autonomous group activated upon the first connection: *hostp2pd* uses `p2p_connect` to setup the first session, while all subsequent connections are managed through WPS enrollment. Once created, the related virtual network interface will be kept active.
+Autonomous/Persistent|`activate_persistent_group: True`, `dynamic_gropus: False`|The group is autonomously activated at program startup. Usage of a persistent group is suggested. All connections are managed through the WPS enrollment technique. A virtual network interface is constantly active since the process startup. This is the suggested method, also defining a persistent group in *wpa_supplicant.conf*.
+
+Other combinations might be possible.
 
 If a whitelist (`white_list: ...`) is configured with PCB (`pbc_in_use: True` or `config_methods=virtual_push_button`) and if the client name does not correspond to any whitelisted names, then the configuration method is changed from *pbc* to *keypad*.
 
