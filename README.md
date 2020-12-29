@@ -7,9 +7,7 @@ __The Wi-Fi Direct Session Manager__
 
 *hostp2pd* accepts [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients and activates a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner). It fully relies on [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) to manage Wi-Fi Direct networking and it interfaces *wpa_supplicant* through its [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
 
-*hostp2pd* enables *wpa_supplicant* to accept Wi-Fi Direct connections from Android smartphones, as well as managing standard infrastructure mode AP connections to the same P2P-GO group.
-
-It includes a command-line interface mode for monitoring and controlling, can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
+*hostp2pd* enables *wpa_supplicant* to accept Wi-Fi Direct connections from P2P Clients, including for instance Android smartphones, as well as to manage standard infrastructure mode AP connections to the same P2P-GO group. It includes a command-line interface mode for monitoring and controlling, can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
 
 # Connecting via Wi-Fi Direct with Android devices
 
@@ -17,7 +15,7 @@ Wi-Fi Direct (formerly named Wi-Fi Peer-to-Peer, or *P2P*) allows devices to con
 
 An advantage of Wi-Fi Direct with Android is that it can coexist with a traditional Wi-Fi connection as well as with a cellular connection: this means that an Android smartphone can be connected to a mobile network, or to an infrastructure-mode Wi-Fi AP with internet access (which always takes priority to the mobile network for its internal Android routing configuration) and at the same time connect to a UNIX device via Wi-Fi Direct, without losing the routing to the mobile (or AP) network because with Android, differently from the standard infrastructure-mode Wi-Fi AP connection, Wi-Fi Direct does not interfere with the routing table.
 
-Apple iOS devices do not support Wi-Fi Direct, but can concurrently connect to a persistent group in AP mode, the same way as for traditional infrastructure-mode Access Points managed by *hostapd*; differently from Android phones, if the persistent group does not configure a default router, iOS does not change the routing tables of the cellular network, which is by consequence not lost.
+Apple iOS devices do not support Wi-Fi Direct, but can concurrently connect to a persistent group in AP mode the same way as for traditional infrastructure-mode Access Points managed by *hostapd*; differently from Android phones, if the persistent group does not configure a default router, iOS does not change the routing tables of the cellular network, which is by consequence not lost.
 
 # Installation
 
@@ -45,7 +43,7 @@ To start a Wi-Fi Direct connection with Android and connect a UNIX system runnin
 
 The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the physical interface *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
 
-Depending the capabilities of the wlan device driver, the AP virtual interface has to be stopped before creating a P2P-GO group. As already mentioned, a persistent P2P-GO group can provide AP capabilities together with the Wi-Fi Direct functionalities.
+Depending on the capabilities of the wlan device driver, the AP virtual interface has to be stopped before creating a P2P-GO group. As already mentioned, a persistent P2P-GO group can provide AP capabilities together with the Wi-Fi Direct functionalities.
 
 Check the supported interface modes with this command:
 
@@ -120,7 +118,7 @@ start) systemctl is-active --quiet uap0 && exit 3
 
 # Configuration files
 
-*wpa_supplicant.conf* and *hostp2pd.yaml* need to be configured.
+hostp2pd needs *wpa_supplicant.conf* and optionally *hostp2pd.yaml*.
 
 ## wpa_supplicant.conf
 
@@ -151,30 +149,30 @@ network={
         key_mgmt=WPA-PSK
         pairwise=CCMP
         auth_alg=OPEN
-        mode=3 # WPAS MODE P2P-GO
-        disabled=2 # Persistent P2P group
+        mode=3                                          # WPAS MODE P2P-GO
+        disabled=2                                      # Persistent P2P group
 }
 ```
 
 The `network` stanzas will define persistent GO groups if the following three conditions occur:
 
--	The SSID shall begin with the `ssid="DIRECT-..."` prefix (P2P_WILDCARD_SSID), otherwise the group is not announced to the network as a P2P group; any alphanumeric string can be used after "DIRECT-" prefix; empirically, the documented format "DIRECT-<random two octets>" (with optional postfix) is not needed.
+-	The SSID shall begin with the `DIRECT-...` prefix (P2P_WILDCARD_SSID), otherwise the group is not announced to the network as a P2P group; any alphanumeric string can be used after "DIRECT-" prefix; empirically, the documented format `DIRECT-<random two octets>` (with optional postfix) is not needed.
 -	A `mode=3` directive shall be present, meaning WPAS_MODE_P2P_GO, otherwise the related `p2p_group_add` command fails for unproper group specification.
--	A `disabled=2` directive shall be present, meaning persistent P2P group, otherwise the stanza is not even recognized and listed as persistent (`disabled=0` means normal network; `disabled=1` will announce a disabled network).
+-	A `disabled=2` directive shall be present, meaning persistent P2P group, otherwise the stanza is not even recognized and listed as persistent (`disabled=0` indicates normal network; `disabled=1` will announce a disabled network).
 
 The following usage modes are allowed:
 
-- interactive mode (with no option, by default *hostp2pd* starts in interactive mode; a prompt is shown)
-- batch mode (use `-b` option; e.g., `-b -` or `-b output_file_name`
+- interactive mode (with no option, by default *hostp2pd* starts in this mode and a prompt is shown)
+- batch mode (use `-b` option; e.g., `-b -` or `-b output_file_name`)
 - daemon mode (use `-d` option). Suggested configuration. If a daemon process is active, option `-t` terminates a running daemon and option `-r` dynamically reloads the configuration of a running program.
 
-When running as a daemon, *hostp2pd* prevents multiple instances over the same P2P-Device interface by using lock files with name "/var/run/hostp2pd-<interface>.pid", where *<interface>* is the name of the P2P-Device interface.
+When running as a daemon, *hostp2pd* prevents multiple instances over the same P2P-Device interface by using lock files with name `/var/run/hostp2pd-<interface>.pid`, where `<interface>` is the name of the P2P-Device interface.
 
 ## hostp2pd.yaml
 
 Check the [hostp2pd.yaml example file](hostp2pd.yaml). It is suggested to install it to /etc/hostp2pd.yaml.
 
-## systemctl
+## Installing the service
 
 Run the following to install the service:
 
@@ -213,7 +211,7 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
 ## Built-in keywords
 
-At the `CMD> ` prompt, *hostp2pd* accepts the following commands:
+At the `CMD> ` prompt in interactive mode, *hostp2pd* accepts the following commands:
 
 - `loglevel` = If an argument is given, set the logging level, otherwise show the current one. Valid numbers: CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10.
 - `reload` = Reload configuration from the latest valid configuration file. Optional argument is a new configuration file; to load defaults use `reset` as argument.
@@ -439,7 +437,7 @@ As alternative modding, instead of adding the MAC address in the driver controll
     }
 ```
 
-Then edit *hostap/wpa_supplicant/p2p_supplicant.c*. In `wpas_p2p_add_p2pdev_interface(()`, change *NULL* with *addr* as in the following line:
+Then edit *hostap/wpa_supplicant/p2p_supplicant.c*. In `wpas_p2p_add_p2pdev_interface(()`, search `ret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, ifname, NULL, NULL,` and change the first *NULL* with *addr* as in the following line:
 
 ```c
 	ret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, ifname, addr, NULL,
@@ -456,6 +454,8 @@ And, before it, add:
         addr = NULL;
 ```
 
+The `STATIC_MAC_ADDRESS` constant uses a sample [MAC address](https://en.wikipedia.org/wiki/MAC_address): replace it with your chosen six octects.
+
 To go on compiling the sources, perform the following commands:
 
 ```bash
@@ -467,7 +467,7 @@ make
 
 To ensure usage of the same static MAC address with the P2P-Device virtual interface, you can use the created *wpa_supplicant* in place of the existing one.
 
-# Licensing
+# License
 
 (C) Ircama 2021 - CC BY SA 4.0
 
