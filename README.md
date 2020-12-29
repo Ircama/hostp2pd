@@ -213,7 +213,7 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
 ## Built-in keywords
 
-At the `CMD> ` prompt, the emulator accepts the following commands:
+At the `CMD> ` prompt, *hostp2pd* accepts the following commands:
 
 - `loglevel` = If an argument is given, set the logging level, otherwise show the current one. Valid numbers: CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10.
 - `reload` = Reload configuration from the latest valid configuration file. Optional argument is a new configuration file; to load defaults use `reset` as argument.
