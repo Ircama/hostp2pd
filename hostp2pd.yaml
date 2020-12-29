@@ -1,0 +1,68 @@
+##########################################################################
+# hostp2pd - The Wi-Fi Direct Session Manager
+# wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
+# https://github.com/Ircama/hostp2pd
+# (C) Ircama 2021 - CC BY SA 4.0
+# Tested with wpa_cli and wpa_supplicant version v2.8-devel
+#########################################################################
+%YAML 1.1
+---
+# Configuration settings (uncomment to enable the configuration parameters)
+hostp2pd:
+#   select_timeout_secs: # see read_wpa() and find_timing_level
+#     normal:    10 # seconds. Period to send p2p_find refreshes
+#     connect:   90 # seconds. Increased timing while p2p_connect
+#     long:     600 # seconds. Period to send p2p_find refreshes after exceeding self.max_scan_polling
+#     enroller: 600 # seconds. Period used by the enroller
+#  p2p_client: "wpa_cli" # wpa_cli program name
+#  min_conn_delay: 40 # seconds delay before issuing another p2p_connect or enroll
+#  max_num_failures: 3 # max number of retries for a p2p_connect
+#  max_num_wpa_cli_failures: 20 # max number of wpa_cli errors
+#  max_scan_polling: 2 # max number of p2p_find consecutive polling (0=infinite number)
+#  pbc_in_use: None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
+#  activate_persistent_group: True # if a persistent group is found, activate it at process startup
+#  max_negotiation_time: 120 # seconds. Time for a station to enter the PIN
+#  dynamic_gropus: False # allow removing group after a session disconnects
+#  password: "00000000" # password
+#  force_logging: None # force_logging
+#  interface: "p2p-dev-wlan0" # interface
+#  run_program: "" # run_program
+#  white_list: # white_list
+#  - "test1"
+#  - "test2"
+
+
+# Log file format
+logging:
+  version: 1
+  disable_existing_loggers: False
+
+  formatters:
+    compact: # used for interactive console
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      #datefmt: '%H:%M:%S'
+    spaced: # used for the the log file
+      format: '%(asctime)s %(threadName)-9s %(funcName)-25s %(levelname)-8s %(message)s'
+
+  handlers:
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: spaced
+      filename: /var/log/hostp2pd.log
+      level: DEBUG # default error level of the log file
+      encoding: utf8
+      maxBytes: 1000000
+      backupCount: 2
+      mode: 'w' # default is a which means append
+
+    console:
+      class: logging.StreamHandler
+      level: ERROR # default error level for interactive mode
+      formatter: compact
+      stream: ext://sys.stdout
+
+  root:
+    level: DEBUG
+    handlers:
+    - console
+    - file
