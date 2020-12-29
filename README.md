@@ -3,23 +3,21 @@ hostp2pd
 
 __The Wi-Fi Direct Session Manager__
 
-*wpa_cli* controller of Wi-Fi Direct connections handled by *wpa_supplicant*, including P2P WPS enrolment.
+*hostp2pd* implements a soft host [Access Point](https://en.wikipedia.org/wiki/Wireless_access_point) (AP) user space [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) software in [Wi-Fi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode, enabling a [wireless network interface card](https://en.wikipedia.org/wiki/Wireless_network_interface_controller) to act as *Ad hoc* access point and [Wi-Fi Protected Setup](https://en.wikipedia.org/wiki/Wi-Fi_Protected_Setup) (WPS) [authentication server](https://en.wikipedia.org/wiki/Authentication_server). It has very basic functionalities roughly similar to [hostapd](https://en.wikipedia.org/wiki/Hostapd) (with its [hostapd.conf](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) configuration file), which is the widely adopted and higly functional AP software, generally used for infrastructure mode networking.
 
-This program accepts [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients. It activates a local P2P-GO (Wi-Fi Direct Group Owner) by interfacing [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) via [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html).
+*hostp2pd* accepts [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients and activates a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner). It fully relies on [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) to manage Wi-Fi Direct networking and it interfaces *wpa_supplicant* through its [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
 
-In order to fully automate the workflow of a P2P-GO in [AP mode](https://en.wikipedia.org/wiki/Wireless_access_point), the program runs *wpa_cli* in background and pipes [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) to it via pseudo-tty communication, while reading events.
+*hostp2pd* enables *wpa_supplicant* to accept Wi-Fi Direct connections from Android smartphones, as well as managing standard infrastructure mode AP connections to the same P2P-GO group.
 
-hostp2pd includes a command-line interface for extensive monitoring and controlling, can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
+It includes a command-line interface mode for monitoring and controlling, can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
 
-# Why using Wi-Fi Direct with Android devices
+# Connecting via Wi-Fi Direct with Android devices
 
-Wi-Fi Direct (formerly named Wi-Fi Peer-to-Peer, or P2P) allows two devices to connect directly to each other, without the need for a traditional Wireless Access Point (AP). The role of the access point is replaced by the so-called Group Owner, typically negotiated during the connection setup.
+Wi-Fi Direct (formerly named Wi-Fi Peer-to-Peer, or *P2P*) allows devices to connect directly to each other, without the need for a traditional Wireless Access Point (AP). The role of the access point is replaced by the so-called Group Owner, typically negotiated during the connection setup.
 
-An advantage of Wi-Fi Direct with Android is that it can coexist with a traditional Wi-Fi connection as well as with a cellular connection: this means that an Android smartphone can be connected to a mobile network, or to a Wi-Fi AP with internet access (which always takes priority to the mobile network for its internal Android routing configuration) and at the same time connect to the UNIX device via Wi-Fi Direct, without losing the routing to the mobile network or AP because, differently from the standard Wi-Fi connection, Wi-Fi Direct does not interfere with the mobile routing.
+An advantage of Wi-Fi Direct with Android is that it can coexist with a traditional Wi-Fi connection as well as with a cellular connection: this means that an Android smartphone can be connected to a mobile network, or to an infrastructure-mode Wi-Fi AP with internet access (which always takes priority to the mobile network for its internal Android routing configuration) and at the same time connect to a UNIX device via Wi-Fi Direct, without losing the routing to the mobile (or AP) network because with Android, differently from the standard infrastructure-mode Wi-Fi AP connection, Wi-Fi Direct does not interfere with the routing table.
 
-Apple iOS devices do not support Wi-Fi Direct.
-
-*hostp2pd* enables *wpa_supplicant* to accept Wi-Fi Direct connections from Android smartphones, as well as managing standard AP connection to the same group in P2P-GO mode.
+Apple iOS devices do not support Wi-Fi Direct, but can concurrently connect to a persistent group in AP mode, the same way as for traditional infrastructure-mode Access Points managed by *hostapd*; differently from Android phones, if the persistent group does not configure a default router, iOS does not change the routing tables of the cellular network, which is by consequence not lost.
 
 # Installation
 
@@ -30,26 +28,28 @@ python3 -V
 # Installing prerequisites
 python3 -m pip install pyyaml
 python3 -m pip install python-daemon
+
+# Installing hostp2pd
 python3 -m pip install git+https://github.com/Ircama/hostp2pd.git
 ```
 
 # Usage
 
-To run hostp2pd in interactive mode, use the following command:
+To run *hostp2pd* in interactive mode, use the following command:
 
 ```shell
 python3 -m hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
 ```
 
-To start a Wi-Fi Direct connection with Android and connect a UNIX system running *hostp2pd*, tap Settings > Wi-Fi > Advanced settings > Wi-Fi Direct and wait for the peer device to appear. Select it and wait for connection established. Notice that through this process, the mobile/cellular connection is not disabled while the Wi-Fi Direct connection is active.
+To start a Wi-Fi Direct connection with Android and connect a UNIX system running *hostp2pd*, tap Settings > Wi-Fi > Advanced settings > Wi-Fi Direct and wait for the peer device to appear. Select it, optionally type the PIN and wait for connection established. As previously explained, through this process the mobile/cellular connection is not disabled while the Wi-Fi Direct connection is active.
 
-The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An unnamed/non-netdev interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the physical interface *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
+The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the physical interface *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
 
-Notice that, depending the capabilities of the wlan device driver, the AP virtual interface has to be stopped before creating a P2P-GO group. Also, a persistent P2P-GO group can provide AP capabilities together with the Wi-Fi Direct functionalities.
+Depending the capabilities of the wlan device driver, the AP virtual interface has to be stopped before creating a P2P-GO group. As already mentioned, a persistent P2P-GO group can provide AP capabilities together with the Wi-Fi Direct functionalities.
 
-Check this command:
+Check the supported interface modes with this command:
 
-```bash
+```shell
 iw list | grep "Supported interface modes" -A 8
 ```
 
@@ -89,9 +89,9 @@ Every line contains alternative combinations. For instance, with the Broadcom BC
 
 It means that not more than one AP or P2P-GO interface can be configured at the same time.
 
-Optionally, *hostp2pd* allows the `-p` option, which defines an external program to be run with "stop" argument before activating a group and with "start" argument after deactivating a group; this allows controlling AP resources before groups are created or after groups are removed.
+Optionally, *hostp2pd* allows the `-p` option, which defines an external program to be run with "stop" argument before activating a group and with "start" argument after deactivating a group; this allows controlling external AP resources before groups are created or after groups are removed.
 
-This is an example of RUN_PROGRAM controlling an AP interface named *uap0*:
+This is an example of RUN_PROGRAM controlling an AP interface named *uap0*, by disabling and enabling it according to the GO group creation/removal:
 
 ```bash
 #!/bin/bash
@@ -115,12 +115,12 @@ start) systemctl is-active --quiet uap0 && exit 3
        test "$uap_ret" -ne 0 && exit $uap_ret
        exit $dhcpcd_ret
        ;;
-esac
+ esac
 ```
 
 # Configuration files
 
-The following files need to be configured.
+*wpa_supplicant.conf* and *hostp2pd.yaml* need to be configured.
 
 ## wpa_supplicant.conf
 
@@ -132,19 +132,21 @@ Ensure that *wpa_supplicant.conf* includes the following P2P configuration lines
 
 ```ini
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev # this allows using wpa_cli as wpa_supplicant client
-update_config=1 # this allows wpa_supplicant to update the wpa_supplicant.conf configuration file
-device_name=DIRECT-test # this is the P2P name shown to the Android phones while connecting via Wi-Fi Direct
-device_type=6-0050F204-1 # (Network Infrastructure / AP)
-config_methods=keypad # Use a fixed password on UNIX, which is asked from a keypad popped up on the Android devices
-p2p_go_intent=15 # force UNIX to become a P2P-GO (Group Owner)
-persistent_reconnect=1 # allow reconnecting to a persistent group without asking a password
-p2p_go_ht40=1 # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
-country=<country ID> # Use your country code here
+update_config=1                                         # this allows wpa_supplicant to update the wpa_supplicant.conf configuration file
+device_name=DIRECT-test                                 # this is the P2P name shown to the Android phones while connecting via Wi-Fi Direct;
+                                                        # use any name in place of "test" and keep the "DIRECT-" prefix.
+device_type=6-0050F204-1                                # (Network Infrastructure / AP)
+config_methods=keypad                                   # keypad uses a fixed password on UNIX, which is asked from a keypad popped up on the Android devices
+p2p_go_intent=15                                        # force UNIX to become a P2P-GO (Group Owner)
+persistent_reconnect=1                                  # allow reconnecting to a persistent group without asking a password
+p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
+country=<country ID>                                    # Use your country code here
 
 # This is an example of P2P persistent group:
 network={
-        ssid="DIRECT-PP-group" # Name of the persistent group saved on the Android phone and shown within the AP names
-        psk="mysecretpassword" # Password used when connecting to the AP (unrelated to P2P-GO enrolment, which is done via WPS)
+        ssid="DIRECT-PP-group"                          # Name of the persistent group saved on the Android phone and shown within the AP names;
+                                                        # use any name in place of "PP-group" and keep the "DIRECT-" prefix.
+        psk="mysecretpassword"                          # Password used when connecting to the AP (unrelated to P2P-GO enrolment, which is done via WPS)
         proto=RSN
         key_mgmt=WPA-PSK
         pairwise=CCMP
