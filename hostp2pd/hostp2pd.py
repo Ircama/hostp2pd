@@ -4,8 +4,7 @@
 # hostp2pd - The Wi-Fi Direct Session Manager
 # wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
 # https://github.com/Ircama/hostp2pd
-# (C) Ircama 2021 - CC BY SA 4.0
-# Tested with wpa_cli and wpa_supplicant version v2.8-devel
+# (C) Ircama 2021 - CC-BY-NC-SA-4.0
 #########################################################################
 import termios
 import subprocess
@@ -382,12 +381,13 @@ white_list: <class 'list'>
             os.close(self.master_fd)
         except:
             logging.debug("Cannot close file descriptors.")
-        self.process.terminate()
-        try:
-            self.process.wait(1)
-        except:
-            logging.debug("wpa_cli process not terminated.")
-        self.set_defaults()
+        if self.process != None:
+            self.process.terminate()
+            try:
+                self.process.wait(1)
+            except:
+                logging.debug("wpa_cli process not terminated.")
+            self.set_defaults()
         logging.debug("Terminated.")
         self.terminate_is_active = False
         return True
@@ -530,7 +530,7 @@ white_list: <class 'list'>
                     if ret != None:
                         logging.critical(
                             'wpa_cli died with return code %s.'
-                            ' Terminating hostp2pd', ret)
+                            ' Terminating hostp2pd.', ret)
                         os.kill(os.getpid(), signal.SIGTERM)
                     if (self.max_scan_polling > 0 and
                             self.scan_polling > self.max_scan_polling):

@@ -2,8 +2,7 @@
 # hostp2pd - The Wi-Fi Direct Session Manager
 # wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
 # https://github.com/Ircama/hostp2pd
-# (C) Ircama 2021 - CC BY SA 4.0
-# Tested with wpa_cli and wpa_supplicant version v2.8-devel
+# (C) Ircama 2021 - CC-BY-NC-SA-4.0
 #########################################################################
 %YAML 1.1
 ---

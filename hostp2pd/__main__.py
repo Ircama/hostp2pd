@@ -4,8 +4,7 @@
 # hostp2pd - The Wi-Fi Direct Session Manager
 # wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
 # https://github.com/Ircama/hostp2pd
-# (C) Ircama 2021 - CC BY SA 4.0
-# Tested with wpa_cli and wpa_supplicant version v2.8-devel
+# (C) Ircama 2021 - CC-BY-NC-SA-4.0
 #########################################################################
 
 import sys
@@ -545,8 +544,8 @@ if __name__ == '__main__':
         w_p2p_interpreter = None
         try:
             with hostp2pd as session:
-                if hostp2pd.process.pid == None:
-                    print("\nCannot start hostp2pd.")
+                if hostp2pd.process == None or hostp2pd.process.pid == None:
+                    print("\nCannot start hostp2pd.\n")
                     os._exit(1) # does not raise SystemExit
                 while hostp2pd.threadState == hostp2pd.THREAD.STARTING:
                     time.sleep(0.1)
