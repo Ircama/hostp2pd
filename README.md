@@ -245,6 +245,8 @@ In addition to the previously listed keywords, any Python command is allowed to 
 
 At the command prompt, cursors and [keyboard shortcuts](https://github.com/chzyer/readline/blob/master/doc/shortcut.md) are allowed. Autocompletion (via TAB key) is active with UNIX systems for all previously described commands and also allows Python keywords and namespaces (built-ins, self and global). If the autocompletion matches a single item, this is immediately expanded; Conversely, if more possibilities are matched, none of them is returned, but pressing TAB again displays a list of available options.
 
+The *reload* command refreshes the configuration of *hostp2pd* as well as the one of *wpa_supplicant*.
+
 # Limitations
 
 The current *hostp2pd* implementation has the following limitations:
@@ -360,12 +362,16 @@ Check [__main__.py](hostp2pd/__main__.py) for usage examples of the three allowe
 
 ## Interactive mode
 
+Interactive mode uses the Context Manager:
+
 ```python
 with hostp2pd as session:
     # do interactive monitoring while the process run
 ```
 
 ## Batch/daemon mode
+
+Batch/daemon mode does not need the Context Manager:
 
 ```
 hostp2pd.run()
@@ -388,11 +394,13 @@ hostp2pd.read_configuration(
 
 # Software architecture
 
-Two threads are started when using the context manager: "Main" and "Core"; the first returns the context to the caller, the second runs the engine in background. In batch/daemon mode, only the in-process "Core" runs in foreground.
+When using the Context Manager, a thread is started: the current context, named "Main", is returned to the user. The created thread, named "Core", runs the *hostp2pd* engine in background.
 
-The "Core" thread starts *wpy_cli* as [subprocess](https://docs.python.org/3/library/subprocess.html) connected to the P2P-Device, bidirectionally interfacing it via [pty](https://docs.python.org/3/library/pty.html), using no-echo mode.
+With batch/daemon mode, the "Core" does not run in a background thread.
 
-When a group is activated, a second [process](https://docs.python.org/3/library/multiprocessing.html#reference) is started, named Enroller, to manage the WPS Enrolling procedure. This process communicates with the Core thread via [multiprocessing Manager](https://docs.python.org/3/library/multiprocessing.html#sharing-state-between-processes) and in turn starts another *wpy_cli* as subprocess connected to the P2P group, interfaced the same way as what done by the Core.
+The "Core" engine starts *wpa_cli* as [subprocess](https://docs.python.org/3/library/subprocess.html) connected to the P2P-Device, bidirectionally interfacing it via [pty](https://docs.python.org/3/library/pty.html), using no-echo mode. The internal "read" function gets one character a time mediated by a [select](https://docs.python.org/3/library/select.html) method which controls read timeout that is used to perform a number of periodic checks.
+
+When a group is activated, a second [process](https://docs.python.org/3/library/multiprocessing.html#reference) is started, named Enroller, to manage WPS Enrolling. This process communicates with the Core thread via [multiprocessing Manager](https://docs.python.org/3/library/multiprocessing.html#sharing-state-between-processes) and in turn starts another *wpa_cli* subprocess, connected to the P2P group, interfaced the same way as what done by the Core.
 
 [Signals](https://docs.python.org/3/library/signal.html) are configured among processes, so that termination is synced. Core sends SIGHUP to Enroller if a configuration needs to be reloaded.
 
@@ -512,7 +520,7 @@ __Notes__
 
 _Running wpa_supplicant from the command line_
 
-Standard distribution already include a wpa_supplicant service. Anyway, for information, the following allows running it from the command line:
+Standard UNIX distributions already include a wpa_supplicant service. Anyway, for information, the following allows running it from the command line:
 
 ```bash
 sudo /sbin/wpa_supplicant -c/etc/wpa_supplicant/wpa_supplicant-wlan0.conf -Dnl80211,wext -iwlan0
