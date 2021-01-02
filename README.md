@@ -31,6 +31,12 @@ python3 -m pip install python-daemon
 python3 -m pip install git+https://github.com/Ircama/hostp2pd.git
 ```
 
+To uninstall:
+
+```shell
+python3 -m pip uninstall -y hostp2pd
+```
+
 # Usage
 
 To run *hostp2pd* in interactive mode, use the following command:
