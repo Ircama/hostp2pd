@@ -70,9 +70,10 @@ class HostP2pD:
     max_num_wpa_cli_failures = 20 # max number of wpa_cli errors
     max_scan_polling = 2 # max number of p2p_find consecutive polling (0=infinite number)
     pbc_in_use = None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
-    activate_persistent_group = True # if a persistent group is found, activate it at process startup
+    activate_persistent_group = True # Activate a persistent group at process startup
+    activate_autonomous_group = False # Activate an autonomous group at process startup
     max_negotiation_time = 120 # seconds. Time for a station to enter the PIN
-    dynamic_gropus = False # allow removing group after a session disconnects
+    dynamic_group = False # allow removing group after a session disconnects
     config_file = None # default YAML configuration file
     password = '00000000' # default password
     force_logging = None # default force_logging
@@ -93,8 +94,9 @@ max_num_wpa_cli_failures: <class 'float'>
 max_scan_polling: <class 'float'>
 pbc_in_use: <class 'bool'>
 activate_persistent_group: <class 'bool'>
+activate_autonomous_group: <class 'bool'>
 max_negotiation_time: <class 'float'>
-dynamic_gropus: <class 'bool'>
+dynamic_group: <class 'bool'>
 password: <class 'str'>
 force_logging: <class 'bool'>
 interface: <class 'str'>
@@ -134,6 +136,8 @@ white_list: <class 'list'>
         value = os.getenv(env_key, None)
         if value:
             self.config_file = value
+        if self.config_file == '<stdin>':
+            self.config_file = '/dev/stdin'
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'rt') as f:
@@ -203,13 +207,41 @@ white_list: <class 'list'>
                 successs = False
         #logging.debug("YAML configuration logging pathname: %s", self.config_file)
         if do_activation:
+            if not self.is_enroller:
+                logging.debug(
+                    'Reloading "wpa_supplicant" configuration file...')
+                self.threadState = self.THREAD.PAUSED
+                time.sleep(0.1)
+                self.write_wpa('ping')
+                time.sleep(0.1)
+                self.write_wpa('ping')
+                time.sleep(0.1)
+                self.write_wpa('reconfigure')
+                cmd_timeout = time.time()
+                while True: # Wait 'OK' before continuing
+                    input_line = self.read_wpa()
+                    if input_line == None:
+                        logging.error(
+                            'Internal Error (read_configuration): '
+                            'read_wpa() abnormally terminated')
+                        time.sleep(0.1)
+                        continue
+                    logging.debug("(reconfigure) Read '%s'", input_line)
+                    if self.warn_on_input_errors(input_line):
+                        continue
+                    if time.time() > cmd_timeout + self.min_conn_delay:
+                        logging.debug(
+                            'Terminating reloading "wpa_supplicant" configuration file after timeout '
+                            'of %s seconds', self.min_conn_delay)
+                        break
+                    if 'OK' in input_line:
+                        logging.debug(
+                            '"wpa_supplicant" configuration reloaded.')
+                        break
+                self.threadState = self.THREAD.ACTIVE
             self.do_activation = True
         if successs:
-            if (self.use_enroller and
-                    not self.is_enroller and
-                    self.enroller != None and
-                    self.enroller.is_alive() and
-                    self.enroller.pid > 0):
+            if self.check_enrol():
                 os.kill(self.enroller.pid, signal.SIGHUP) # Ask the enroller to reload its configuration
             logging.debug('Configuration successfully loaded.')
         else:
@@ -229,6 +261,7 @@ white_list: <class 'list'>
     def set_defaults(self):
         self.p2p_connect_time = 0 # 0=run function (set by start_session() and enrol())
 
+        self.group_type = None
         self.monitor_group = None
         self.can_register_cmds = False
         self.num_failures = 0
@@ -241,31 +274,36 @@ white_list: <class 'list'>
         self.threadState = self.THREAD.STOPPED
         self.master_fd = None
         self.slave_fd = None
-        self.ssid_persistent_group = None
+        self.ssid_group = None
         self.do_activation = False
         self.find_timing_level = 'normal'
         self.config_method_in_use = ''
-        self.use_enroller = True
-        self.is_enroller = False
-        self.enroller = None
+        self.use_enroller = True # False = run obsolete procedure instead of Enroller
+        self.is_enroller = False # False if I am Core, True if I am Enroller
+        self.enroller = None # Core can check this to know Enroller is active
+        self.terminate_is_active = False # silence read/write errors if terminating
 
 
     def __init__(
             self,
-            config_file = config_file,
-            interface = interface,
-            run_program = run_program,
-            force_logging = force_logging,
-            white_list = white_list,
-            password = password):
+            config_file=config_file,
+            interface=interface,
+            run_program=run_program,
+            force_logging=force_logging,
+            white_list=white_list,
+            password=password):
 
         os.umask(0o077) # protect reserved information in logging
+
+        # Shared data between Core and Enroller
         self.manager = Manager()
         self.logger = logging.getLogger()
         self.statistics = self.manager.dict()
         self.addr_register = self.manager.dict()
+
         self.set_defaults()
 
+        # Argument handling
         self.config_file = config_file
         self.interface = interface
         self.run_program = run_program
@@ -297,6 +335,7 @@ white_list: <class 'list'>
 
 
     def __enter__(self):
+        """ Activated when starting the Context Manager"""
         self.start_process()
         threading.current_thread().name = "Main"
         # start the read thread
@@ -308,15 +347,19 @@ white_list: <class 'list'>
 
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """ Activated when ending the Context Manager"""
         self.terminate()
         return False # don't suppress any exception
 
 
     def terminate(self):
+        """ hostp2pd termination procedure """
+        self.terminate_is_active = True
         logging.debug("Start termination procedure.")
         self.terminate_enrol()
         if not self.slave_fd:
             logging.error("Not started.")
+            self.terminate_is_active = False
             return False
         if self.thread and self.threadState != self.THREAD.STOPPED:
             self.threadState = self.THREAD.STOPPED
@@ -338,24 +381,32 @@ white_list: <class 'list'>
             logging.debug("wpa_cli process not terminated.")
         self.set_defaults()
         logging.debug("Terminated.")
+        self.terminate_is_active = False
         return True
 
 
     def run_enrol(self, child=False, statistics=None, addr_register=None):
-        if not self.use_enroller:
-            return
-        if child:
-            # Receive SIGTERM if the father dies
+        """ Core starts the Enroller child; child activates itself """
+        if not child and self.check_enrol():
+            return # Avoid double instance of the Enroller process
+        if child: # I am Enroller
+            threading.current_thread().name = "Enroller"
+
+            # Shared data
             self.statistics = statistics
             self.addr_register = addr_register
+
+            # Receive SIGTERM if the father dies
             libc = ctypes.CDLL(find_library("c"))
             PR_SET_PDEATHSIG = 1  # <sys/prctl.h>
             libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM, 0, 0, 0)
-            threading.current_thread().name = "Enroller"
 
             self.wpa_supplicant_errors = 0
+            if not self.monitor_group:
+                logging.critical("PANIC - Internal error: null monitor_group")
+                return
             self.run(self.monitor_group)
-        else:
+        else: # I am Core
             self.enroller = Process(
                 target=self.run_enrol,
                 args=(
@@ -365,15 +416,24 @@ white_list: <class 'list'>
                 )
             )
             self.enroller.start()
+            logging.debug("Starting enroller process with PID %s",
+                self.enroller.pid)
 
 
-    def terminate_enrol(self):
+    def check_enrol(self):
+        """ Core checks whether Enroller process is active """
         if (self.use_enroller and
                 not self.is_enroller and
                 self.enroller != None and
                 self.enroller.is_alive() and
                     self.enroller.pid > 0):
-            logging.debug("Terminating enroller process.")
+            return True
+        return False
+
+    def terminate_enrol(self):
+        """ Core terminates active Enroller process """
+        if self.check_enrol():
+            logging.debug("Terminating Enroller process.")
             self.enroller.terminate()
             self.enroller.join(2)
             logging.debug("Enroller process terminated.")
@@ -381,6 +441,7 @@ white_list: <class 'list'>
 
 
     def run(self, enrol_group=None):
+        """ Main procedure """
         if enrol_group:
             self.is_enroller = True
             self.interface = enrol_group
@@ -395,6 +456,16 @@ white_list: <class 'list'>
             self.start_process()
         self.read_configuration(
             configuration_file=self.config_file)
+        if self.activate_persistent_group and self.activate_autonomous_group:
+            logging.error('Error: "activate_persistent_group" '
+            'and "activate_autonomous_group" are both active. '
+            'Considering peristent group.')
+            self.activate_autonomous_group = False
+        if self.activate_persistent_group and self.dynamic_group:
+            logging.error('Error: "activate_persistent_group" '
+            'and "dynamic_group" are both active. '
+            'Considering peristent group.')
+            self.dynamic_group = False
 
         if self.is_enroller:
             logging.info(
@@ -418,6 +489,12 @@ white_list: <class 'list'>
 
             # get the command and process it
             self.cmd = self.read_wpa()
+            if self.cmd == None:
+                logging.error(
+                    'Internal Error (run): '
+                    'read_wpa() abnormally terminated')
+                time.sleep(0.1)
+                continue
             if self.threadState == self.THREAD.STOPPED:
                 return
             logging.debug(
@@ -428,52 +505,56 @@ white_list: <class 'list'>
 
 
     def read_wpa(self):
-        """ reads from wpa_cli until the next newline """
+        """ reads from wpa_cli until the next newline
+            Returned value: void string (no data),
+            or data (valued string), or None (error)
+        """
         buffer = ""
 
-        while True:
-            if (self.find_timing_level == 'normal' and
-                    self.max_scan_polling > 0 and
-                    self.scan_polling >= self.max_scan_polling):
-                self.find_timing_level = 'long'
-            timeout = self.select_timeout_secs[self.find_timing_level]
-            try:
+        try:
+            while True:
+                if (self.find_timing_level == 'normal' and
+                        self.max_scan_polling > 0 and
+                        self.scan_polling >= self.max_scan_polling):
+                    self.find_timing_level = 'long'
+                timeout = self.select_timeout_secs[self.find_timing_level]
                 reads, _, _ = select([ self.master_fd ], [], [], timeout)
-            except Exception as e:
-                #logging.debug("Read terminated: %s.", e)
-                logging.debug("Read terminated.")
-                return None
-            if len(reads) > 0:
-                c = os.read(self.master_fd, 1).decode('utf8', 'ignore')
-            else:
-                ret = self.process.poll()
-                if ret != None:
-                    logging.critical(
-                        'wpa_cli died with return code %s.'
-                        ' Terminating hostp2pd', ret)
-                    os.kill(os.getpid(), signal.SIGTERM)
-                if (self.max_scan_polling > 0 and
-                        self.scan_polling > self.max_scan_polling):
-                    logging.info(
-                        "Exceeded number of p2p_find pollings "
-                        "after read timeout of %s seconds: %s",
-                        timeout, self.scan_polling)
+                if len(reads) > 0:
+                    c = os.read(self.master_fd, 1).decode('utf8', 'ignore')
                 else:
-                    self.scan_polling += 1
-                    logging.debug(
-                        'p2p_find polling after read timeout '
-                        'of %s seconds: %s of %s',
-                        timeout, self.scan_polling, self.max_scan_polling)
-                    self.write_wpa("p2p_find")
-                continue
+                    ret = self.process.poll()
+                    if ret != None:
+                        logging.critical(
+                            'wpa_cli died with return code %s.'
+                            ' Terminating hostp2pd', ret)
+                        os.kill(os.getpid(), signal.SIGTERM)
+                    if (self.max_scan_polling > 0 and
+                            self.scan_polling > self.max_scan_polling):
+                        logging.info(
+                            "Exceeded number of p2p_find pollings "
+                            "after read timeout of %s seconds: %s",
+                            timeout, self.scan_polling)
+                    else:
+                        self.scan_polling += 1
+                        logging.debug(
+                            'p2p_find polling after read timeout '
+                            'of %s seconds: %s of %s',
+                            timeout, self.scan_polling, self.max_scan_polling)
+                        self.write_wpa("p2p_find")
+                    continue
 
-            if c == '\n':
-                break # complete the read operation and does not include the newline
+                if c == '\n':
+                    break # complete the read operation and does not include the newline
 
-            if c == '\r':
-                continue # skip carriage returns
+                if c == '\r':
+                    continue # skip carriage returns
 
-            buffer += c
+                buffer += c
+        except Exception as e:
+            if  self.terminate_is_active:
+                logging.debug("Read interrupted: %s", e)
+                return None # error
+            logging.critical("PANIC - Internal error in read_wpa(): %s", e, exc_info=True)
 
         return buffer
 
@@ -484,7 +565,9 @@ white_list: <class 'list'>
         resp += '\n'
         try:
             return os.write(self.master_fd, resp.encode())
-        except:
+        except Exception as e:
+            if  not self.terminate_is_active:
+                logging.critical("PANIC - Internal error in write_wpa(): %s", e, exc_info=True)
             return None
 
     def rotate_config_method(self):
@@ -526,6 +609,7 @@ white_list: <class 'list'>
                 "p2p_connect " + station + " " + self.password + ' display')
             logging.warning('Connection request (PIN method): %s', station)
         self.p2p_connect_time = time.time()
+        self.group_type = 'Negotiated (always won)'
 
 
     def list_or_remove_group(self, remove=False):
@@ -539,6 +623,12 @@ white_list: <class 'list'>
         cmd_timeout = time.time()
         while True:
             input_line = self.read_wpa()
+            if input_line == None:
+                logging.error(
+                    'Internal Error (list_or_remove_group): '
+                    'read_wpa() abnormally terminated')
+                time.sleep(0.1)
+                continue
             logging.debug("reading '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
@@ -598,7 +688,13 @@ white_list: <class 'list'>
         cmd_timeout = time.time()
         while True:
             input_line = self.read_wpa()
-            logging.debug("Read '%s'", input_line)
+            if input_line == None:
+                logging.error(
+                    'Internal Error (list_start_pers_group): '
+                    'read_wpa() abnormally terminated')
+                time.sleep(0.1)
+                continue
+            logging.debug("(list_start_pers_group) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
             if time.time() > cmd_timeout + self.min_conn_delay:
@@ -606,7 +702,7 @@ white_list: <class 'list'>
                     'Terminating persistent group start procedure after timeout of %s seconds.',
                     self.min_conn_delay)
                 if self.monitor_group:
-                    self.ssid_persistent_group = self.analyze_existing_group(
+                    self.ssid_group = self.analyze_existing_group(
                         self.monitor_group)
                 if self.monitor_group:
                     logging.info('Active group interface "%s"', self.monitor_group)
@@ -618,9 +714,12 @@ white_list: <class 'list'>
                     tokens.pop(0)
                 wait_cmd = 0
                 self.monitor_group = tokens[1]
-                logging.info('P2P-GROUP-STARTED %s', self.monitor_group)
+                ssid_arg = re.sub(r'.*ssid="([^"]*).*', r'\1', input_line, 1) # read ssid="<name>"
+                if not ssid:
+                    ssid = ssid_arg
+                logging.info('Persistent group started %s', self.monitor_group)
                 logging.debug(
-                    'Terminating persistent group activation procedure. ssid="%s"',
+                    'Persistent group activation procedure completed. ssid="%s"',
                     ssid)
                 return ssid
             if 'OK' in input_line:
@@ -633,7 +732,14 @@ white_list: <class 'list'>
                 logging.debug(
                     'Terminating list_start_pers_group without starting any group. ssid="%s"',
                     ssid)
-                break
+                if self.activate_persistent_group and not ssid:
+                    self.write_wpa("p2p_group_add persistent")
+                    wait_cmd = time.time()
+                    logging.warning("Starting generic persistent group")
+                    self.group_type = 'Generic persistent'
+                    time.sleep(1)
+                else:
+                    break
             if len(tokens) == 0: # remove null line
                 continue
             if tokens[0] == 'network':
@@ -644,6 +750,7 @@ white_list: <class 'list'>
                     continue
                 self.external_program("stop")
                 self.write_wpa("p2p_group_add persistent=" + tokens[0])
+                self.group_type = 'Persistent'
                 wait_cmd = time.time()
                 logging.warning("Starting the first persistent group in the wpa_supplicant conf file: '%s'", ssid)
                 time.sleep(1)
@@ -671,7 +778,13 @@ white_list: <class 'list'>
             group, ssid_pg)
         while True:
             input_line = self.read_wpa()
-            logging.debug("Read '%s'", input_line)
+            if input_line == None:
+                logging.error(
+                    'Internal Error (analyze_existing_group): '
+                    'read_wpa() abnormally terminated')
+                time.sleep(0.1)
+                continue
+            logging.debug("(analyze_existing_group) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
             if time.time() > cmd_timeout + self.min_conn_delay:
@@ -707,7 +820,13 @@ white_list: <class 'list'>
         found = False
         while True:
             input_line = self.read_wpa()
-            logging.debug("Read '%s'", input_line)
+            if input_line == None:
+                logging.error(
+                    'Internal Error (get_config_methods): '
+                    'read_wpa() abnormally terminated')
+                time.sleep(0.1)
+                continue
+            logging.debug("(get_config_methods) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
             if time.time() > cmd_timeout + self.min_conn_delay:
@@ -788,7 +907,13 @@ white_list: <class 'list'>
         self.write_wpa("interface " + self.monitor_group)
         while True:
             input_line = self.read_wpa()
-            logging.debug("Read '%s'", input_line)
+            if input_line == None:
+                logging.error(
+                    'Internal Error (in_process_enrol): '
+                    'read_wpa() abnormally terminated')
+                time.sleep(0.1)
+                continue
+            logging.debug("(in_process_enrol) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
             if time.time() > cmd_timeout + self.max_negotiation_time:
@@ -835,7 +960,7 @@ white_list: <class 'list'>
                 self.max_num_wpa_cli_failures)
             self.wpa_supplicant_errors += 1
             self.monitor_group = None
-            self.ssid_persistent_group = None
+            self.ssid_group = None
             return True
         if "wpa_supplicant" in input:
             logging.warning(input)
@@ -865,6 +990,7 @@ white_list: <class 'list'>
         dev_name = re.sub(r".*name='([^']*).*", r'\1', wpa_cli, 1) # some event have "name="
         p2p_dev_addr = re.sub(r".*p2p_dev_addr=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "p2p_dev_addr="
         pri_dev_type = re.sub(r".*pri_dev_type=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "pri_dev_type="
+        ssid_arg = re.sub(r'.*ssid="([^"]*).*', r'\1', wpa_cli, 1) # read ssid="<name>"
 
         if self.warn_on_input_errors(wpa_cli):
             #if ((self.is_enroller and self.wpa_supplicant_errors) or
@@ -917,21 +1043,27 @@ white_list: <class 'list'>
                 logging.debug('(enroller) Started on group "%s"',
                     self.monitor_group)
                 self.find_timing_level = 'enroller'
-            else:
+            else: # Core startup
                 self.monitor_group = self.list_or_remove_group(remove=False)
+                if self.activate_autonomous_group and not self.monitor_group:
+                    self.write_wpa("p2p_group_add")
+                    self.group_type = 'Autonomous'
+                    self.monitor_group = self.list_or_remove_group(remove=False)
                 if self.monitor_group:
-                    self.ssid_persistent_group = self.analyze_existing_group(
+                    self.ssid_group = self.analyze_existing_group(
                         self.monitor_group)
                 else:
-                    self.ssid_persistent_group = self.list_start_pers_group(
+                    self.ssid_group = self.list_start_pers_group(
                         start_group=self.activate_persistent_group)
-                if self.ssid_persistent_group:
-                    logging.info('Configured persistent group "%s"',
-                        self.ssid_persistent_group)
+                if self.ssid_group:
+                    logging.info('Configured autonomous/persistent group "%s"',
+                        self.ssid_group)
                 if self.monitor_group:
                     logging.info('Active group interface "%s"',
                         self.monitor_group)
                     self.run_enrol()
+                    if not self.group_type:
+                        self.group_type = 'Existing autonomous/persistent'
 
                 # Announce again
                 self.write_wpa("p2p_stop_find")
@@ -947,7 +1079,10 @@ white_list: <class 'list'>
             return True
         self.scan_polling = 0 # scan polling is reset by any message different than 'OK' and 'p2p_find'
 
-        logging.debug("(enroller) event_name: %s" if self.is_enroller else "event_name: %s", event_name)
+        if self.is_enroller:
+            logging.debug("(enroller) event_name: %s", event_name)
+        else:
+            logging.debug("event_name: %s", event_name)
 
         # > <3>CTRL-EVENT-SCAN-STARTED
         if event_name == 'CTRL-EVENT-SCAN-STARTED':
@@ -1124,7 +1259,7 @@ white_list: <class 'list'>
                 'Invalid connection request. Event="%s", station name="%s", '
                 'address="%s", group="%s", persistent group="%s".',
                 event_name, dev_name, mac_addr, self.monitor_group,
-                self.ssid_persistent_group)
+                self.ssid_group)
             if self.pbc_in_use:
                 #self.write_wpa("p2p_remove_client " + mac_addr)
                 self.write_wpa("p2p_prov_disc " + mac_addr + " pbc")
@@ -1148,7 +1283,7 @@ white_list: <class 'list'>
             logging.warning('Station "%s" disconnected.', p2p_dev_addr)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_gropus:
+            if self.dynamic_group:
                 if self.monitor_group:
                     self.write_wpa("p2p_group_remove " + self.monitor_group)
                     self.monitor_group = ''
@@ -1164,7 +1299,7 @@ white_list: <class 'list'>
             logging.warning('Provision discovery failed for station "%s".', p2p_dev_addr)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_gropus:
+            if self.dynamic_group:
                 if self.monitor_group:
                     self.write_wpa("p2p_group_remove " + self.monitor_group)
                     self.monitor_group = ''
@@ -1205,7 +1340,9 @@ white_list: <class 'list'>
         if event_name == 'P2P-GROUP-STARTED' and wpa_cli_word[1]:
             self.find_timing_level = 'connect'
             self.monitor_group = wpa_cli_word[1]
-            logging.info('P2P-GROUP-STARTED %s', self.monitor_group)
+            if ssid_arg:
+                self.ssid_group = ssid_arg
+            logging.warning("Autonomous group started: %s", self.monitor_group)
             self.run_enrol()
             return True
 
@@ -1236,7 +1373,7 @@ white_list: <class 'list'>
             self.monitor_group = None
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_gropus:
+            if self.dynamic_group:
                 self.num_failures += 1
                 if self.num_failures < self.max_num_failures:
                     logging.warning(
@@ -1254,13 +1391,14 @@ white_list: <class 'list'>
             else:
                 logging.critical(
                     'Group formation failed (P2P-GROUP-FORMATION-FAILURE). Terminating.')
-                self.terminate()
-                return False
+                return True
+                #self.terminate()
+                #return False
 
         if event_name == 'P2P-GO-NEG-FAILURE':
             self.find_timing_level = 'normal'
             self.p2p_connect_time = 0
-            if self.dynamic_gropus:
+            if self.dynamic_group:
                 self.num_failures += 1
                 if self.num_failures < self.max_num_failures:
                     logging.warning(
@@ -1279,7 +1417,7 @@ white_list: <class 'list'>
         if event_name == 'FAIL':
             self.find_timing_level = 'normal'
             self.p2p_connect_time = 0
-            if self.dynamic_gropus:
+            if self.dynamic_group:
                 logging.info('Connection failed')
                 self.monitor_group = self.list_or_remove_group(True)
                 self.num_failures += 1
