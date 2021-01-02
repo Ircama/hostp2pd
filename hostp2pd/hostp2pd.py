@@ -29,6 +29,33 @@ from multiprocessing import Process, Manager
 from .__version__ import __version__
 
 
+class RedactingFormatter(object):
+    def __init__(self, orig_formatter, patterns, mask):
+        self.orig_formatter = orig_formatter
+        self._patterns = patterns
+        self._mask = mask
+
+    def format(self, record):
+        msg = self.orig_formatter.format(record)
+        for pattern in self._patterns:
+            msg = msg.replace(pattern, self._mask)
+        return msg
+
+    def __getattr__(self, attr):
+        return getattr(self.orig_formatter, attr)
+
+
+def hide_from_logging(password_list, mask):
+    root = logging.getLogger()
+    if root and root.handlers:
+        for h in root.handlers:
+            h.setFormatter(RedactingFormatter(
+                    h.formatter,
+                    patterns=password_list,
+                    mask=mask)
+                )
+
+
 def get_type(value, conf_schema):
     if isinstance(value, dict):
         if conf_schema == None: 
@@ -42,8 +69,8 @@ def get_type(value, conf_schema):
         return {key: get_type(value[key], conf_schema[key]) for key in value}
     else:
         ret_val = "<class 'int'>" if value == None else str(type(value))
-        if ret_val == "<class 'int'>":
-            ret_val = "<class 'float'>"
+        if ret_val == "<class 'int'>" and conf_schema == "<class 'float'>":
+            ret_val = conf_schema
         if ret_val == "<class 'NoneType'>":
             ret_val = conf_schema
         if conf_schema != None and conf_schema != ret_val:
@@ -71,6 +98,7 @@ class HostP2pD:
     pbc_in_use = None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
     activate_persistent_group = True # Activate a persistent group at process startup
     activate_autonomous_group = False # Activate an autonomous group at process startup
+    persistent_network_id = None # persistent group network number (None = first in wpa_supplicant config.)
     max_negotiation_time = 120 # seconds. Time for a station to enter the PIN
     dynamic_group = False # allow removing group after a session disconnects
     config_file = None # default YAML configuration file
@@ -94,6 +122,7 @@ max_scan_polling: <class 'float'>
 pbc_in_use: <class 'bool'>
 activate_persistent_group: <class 'bool'>
 activate_autonomous_group: <class 'bool'>
+persistent_network_id: <class 'int'>
 max_negotiation_time: <class 'float'>
 dynamic_group: <class 'bool'>
 password: <class 'str'>
@@ -119,15 +148,6 @@ white_list: <class 'list'>
             env_key=os.path.basename(Path(__file__).stem).upper() + '_CFG',
             do_activation=False):
         successs = True
-        if configuration_file == 'reset':
-            logging.debug("Resetting configuration to default values")
-            self.config_file = None
-            logging.basicConfig(level=default_level)
-            if self.force_logging == None:
-                logging.basicConfig(level=default_level)
-            else:
-                self.logger.setLevel(self.force_logging)
-            return successs
         if configuration_file:
             self.config_file = configuration_file
         else:
@@ -137,7 +157,7 @@ white_list: <class 'list'>
             self.config_file = value
         if self.config_file == '<stdin>':
             self.config_file = '/dev/stdin'
-        if os.path.exists(self.config_file):
+        if os.path.exists(self.config_file) and configuration_file != 'reset':
             try:
                 with open(self.config_file, 'rt') as f:
                     try:
@@ -199,12 +219,21 @@ white_list: <class 'list'>
                 successs = False
         else:
             logging.basicConfig(level=default_level)
-            if self.config_file:
-                logging.critical(
-                    'Cannot find YAML configuration file "%s".',
-                    self.config_file)
-                successs = False
+            if configuration_file == 'reset':
+                logging.debug("Resetting configuration to default values")
+                self.config_file = None
+                if self.force_logging == None:
+                    logging.basicConfig(level=default_level)
+                else:
+                    self.logger.setLevel(self.force_logging)
+            else:
+                if self.config_file:
+                    logging.critical(
+                        'Cannot find YAML configuration file "%s".',
+                        self.config_file)
+                    successs = False
         #logging.debug("YAML configuration logging pathname: %s", self.config_file)
+        hide_from_logging([self.password], "********")
         if do_activation:
             if not self.is_enroller:
                 logging.debug(
@@ -281,7 +310,6 @@ white_list: <class 'list'>
         self.is_enroller = False # False if I am Core, True if I am Enroller
         self.enroller = None # Core can check this to know Enroller is active
         self.terminate_is_active = False # silence read/write errors if terminating
-        self.persistent_network_id = None # used network number for persistent group
 
 
     def __init__(
@@ -761,19 +789,28 @@ white_list: <class 'list'>
                 continue
             if tokens[0] == 'network':
                 continue
-            if len(tokens) == 4 and '[P2P-PERSISTENT]' in tokens[3] and tokens[0].isnumeric():
+            if (len(tokens) == 4 and '[P2P-PERSISTENT]' in tokens[3] and
+                    tokens[0].isnumeric()):
                 ssid = tokens[1]
+                if (self.persistent_network_id != None and
+                    str(self.persistent_network_id) != tokens[0]):
+                        logging.debug('Skipping persistent group '
+                            '"%s" with network ID %s, different'
+                            ' from %s',
+                            tokens[1], tokens[0], self.persistent_network_id)
+                        continue
                 self.persistent_network_id = tokens[0]
                 if not start_group:
                     continue
                 self.external_program("stop")
-                self.write_wpa("p2p_group_add persistent=" + self.persistent_network_id)
+                self.write_wpa("p2p_group_add persistent=" +
+                    self.persistent_network_id)
                 self.group_type = 'Persistent'
                 wait_cmd = time.time()
                 logging.warning(
-                        'Starting the first persistent group n. %s '
-                        'in the wpa_supplicant conf file: "%s"',
-                    self.persistent_network_id, ssid)
+                        'Starting persistent group "%s", n. %s '
+                        'in the wpa_supplicant conf file',
+                    ssid, self.persistent_network_id)
                 time.sleep(1)
         return ssid
 
