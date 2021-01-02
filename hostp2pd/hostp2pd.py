@@ -324,20 +324,27 @@ white_list: <class 'list'>
         termios.tcsetattr(self.slave_fd, termios.TCSADRAIN, no_echo)
         
         # Start process connected to the slave pty
-        self.process = subprocess.Popen(
-                [self.p2p_client, '-i', self.interface],
-                #shell=True,
-                stdin=self.slave_fd,
-                stdout=self.slave_fd,
-                stderr=self.slave_fd,
-                bufsize=1,
-                universal_newlines=True
-            )
+        try:
+            self.process = subprocess.Popen(
+                    [self.p2p_client, '-i', self.interface],
+                    #shell=True,
+                    stdin=self.slave_fd,
+                    stdout=self.slave_fd,
+                    stderr=self.slave_fd,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+        except FileNotFoundError as e:
+            logging.critical(
+                'PANIC - Cannot run "wpa_cli" software: %s', e)
+            return False
+        return True
 
 
     def __enter__(self):
         """ Activated when starting the Context Manager"""
-        self.start_process()
+        if not self.start_process():
+            return None
         threading.current_thread().name = "Main"
         # start the read thread
         self.threadState = self.THREAD.STARTING
@@ -454,7 +461,8 @@ white_list: <class 'list'>
         else:
             threading.current_thread().name = "Core"
         if self.is_enroller or self.process == None:
-            self.start_process()
+            if not self.start_process():
+                return
         self.read_configuration(
             configuration_file=self.config_file)
         if self.activate_persistent_group and self.activate_autonomous_group:
