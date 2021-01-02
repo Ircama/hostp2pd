@@ -256,7 +256,7 @@ The current *hostp2pd* implementation has the following limitations:
 - The authorization process (WPS enrollment) is always done if a P2P Client asks to connect, regardless the group selected by the client.
 - Tested with only one station; two or more stations should concurrently connect to the same persistent group.
 - Only the first persistent group configured in *wpa_supplicant.conf* is used; other groups can be defined in the configuration, but they are not automatically activated.
-- as hostp2pd is fully unattended, the following WPS credential methods are available: *pbc* and *keypad*. The *display* configuration method (much more secure than *keypad*) is not implemented and need interaction (to insert the PIN presented by the Android handset). This means that at the moment the enrolment is done with a either static PIN saved in the hostp2p.yaml configuration file (or passed to the object) or with no PIN at all (PBC mode). To protect PBC (no PIN), a list of enabled enrollees names can be defined. Notice that this is a weak authentication method, because the enrollees names are publicly announced.
+- As hostp2pd is fully unattended, the following WPS credential methods are available: *pbc* and *keypad*. The *display* configuration method (much more secure than *keypad*) is not implemented and need interaction (to insert the PIN presented by the Android handset). This means that at the moment the enrolment is done with a either static PIN saved in the hostp2p.yaml configuration file (or passed to the object) or with no PIN at all (PBC mode). To protect PBC (no PIN), a list of enabled enrollees names can be defined. Notice that this is a weak authentication method, because the enrollees names are publicly announced.
 - When `dynamic_group` option is set to `True`, only a single station a time is accepted, because a station disconnects, the group is removed and any other connected station loses the session.
 
 # Command-line arguments
@@ -512,7 +512,7 @@ If usage of `p2p_device_persistent_mac_addr` is not available, as alternative, t
 
 # License
 
-(C) Ircama 2021 - CC BY SA 4.0
+(C) Ircama 2021 - CC BY-NC-SA 4.0
 
 _______________
 
