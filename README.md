@@ -145,6 +145,7 @@ p2p_go_intent=15                                        # force UNIX to become a
 persistent_reconnect=1                                  # allow reconnecting to a persistent group without user acknowledgement
 p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
 country=<country ID>                                    # Use your country code here
+p2p_device_persistent_mac_addr=<mac address>            # Fixed MAC address overcoming MAC Randomization, to be used with persistent group
 
 # This is an example of P2P persistent group:
 network={
@@ -167,6 +168,8 @@ The above example shows how to predefine a P2P persistent group. Specifically, t
 -	A `disabled=2` directive shall be present, meaning persistent P2P group, otherwise the stanza is not even recognized and listed as persistent (`disabled=0` indicates normal network; `disabled=1` will announce a disabled network).
 
 If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* creates a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
+
+See below for the usage of `p2p_device_persistent_mac_addr`; some nl80211 device drivers allow `p2p_device_random_mac_addr=1` instead of modifying the *wpa_supplicant* code.
 
 The following usage modes of *hostp2pd* are allowed:
 
@@ -400,13 +403,15 @@ Linux and Android devices use by default randomized MAC addresses when probing f
 
 MAC randomization prevents listeners from using MAC addresses to build a history of device activity, thus increasing user privacy.
 
-Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking reconnections. This appears to be appropriately managed by Android devices.
+Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart. This appears to be appropriately managed by Android devices.
 
-Nevertheless, on some UNIX devices (e.g., with Raspberry Pi OS., based on Debian Buster) reinvoking a persistent group after restarting wpa_supplicant will change the related virtual interface local address, breaking the reuse of the saved group in the peer system.
+Nevertheless, on some UNIX devices (e.g., with Raspberry Pi OS., based on Debian Buster) reinvoking a persistent group after restarting wpa_supplicant will change the local MAC address of the related virtual interface, breaking the reuse of the saved group in the peer system.
 
-This limitation prevents to setup effective Wi-Fi Direct configurations between Raspberry Pi and Android mobile phones.
+This limitation prevents to setup effective Wi-Fi Direct configurations between Raspberry Pi and Android mobile phones, which need to persist after a reboot.
 
-There is no valid configuration strategy at the moment that prevents MAC randomization with persistent groups. The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them.
+The only configuration strategy that at the moment appears to prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; in case, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, a modification of the current version of *wpa_supplicant* might be needed.
+
+The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them; it exploits the usage of `p2p_device_persistent_mac_addr`, but not `p2p_device_random_mac_addr`.
 
 To download *wpa_supplicant* sources and prepare the environment:
 
@@ -479,7 +484,7 @@ Example:
 p2p_device_persistent_mac_addr=dc:a6:32:01:02:03
 ```
 
-This modification exploits `p2p_device_persistent_mac_addr`, which has been introduced in [a previous patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e). If this patch is not available, as alternative, edit *hostap/src/drivers/driver_nl80211.c*. In `nl80211_create_iface_once()`,  before `ret = send_and_recv_msgs(drv, msg, handler, arg, NULL, NULL);` add the following:
+If usage of `p2p_device_persistent_mac_addr` is not available, as alternative, the MAC address can be hardcoded: edit *hostap/src/drivers/driver_nl80211.c*. In `nl80211_create_iface_once()`,  before `ret = send_and_recv_msgs(drv, msg, handler, arg, NULL, NULL);` add the following:
 
 ```c
 #define STATIC_MAC_ADDRESS "dc:a6:32:01:02:03"
@@ -508,4 +513,4 @@ Standard distribution already include a wpa_supplicant service. Anyway, for info
 sudo /sbin/wpa_supplicant -c/etc/wpa_supplicant/wpa_supplicant-wlan0.conf -Dnl80211,wext -iwlan0
 ```
 
-There is a relevant blog with [in-depth notes on Wi-Fi Direct](https://praneethwifi.in/)
+There is a relevant blog with [in-depth notes on Wi-Fi Direct](https://praneethwifi.in/).
