@@ -366,7 +366,7 @@ hostp2pd = HostP2pD(
     password="00000000")        # optional PIN of keypad enrolment
 ```
 
-Check [__main__.py](hostp2pd/__main__.py) for usage examples of the three allowed invocation methods: interactive, batch and daemon modes.
+Check [`__main__.py`](hostp2pd/__main__.py) for usage examples of the three allowed invocation methods: interactive, batch and daemon modes.
 
 ## Interactive mode
 
