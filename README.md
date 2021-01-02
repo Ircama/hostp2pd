@@ -162,11 +162,11 @@ network={
 
 The above example shows how to predefine a P2P persistent group. Specifically, the `network` stanzas will define persistent GO groups if the following three conditions occur:
 
--	The SSID shall begin with the `DIRECT-...` prefix (P2P_WILDCARD_SSID), otherwise the group is not appropriately announced to the network as a P2P group; any alphanumeric string can be used after "DIRECT-" prefix; empirically, the documented format `DIRECT-<random two octets>` (with optional postfix) is not needed.
+-	The SSID shall begin with the `DIRECT-...` prefix (P2P_WILDCARD_SSID), otherwise the group is not appropriately announced to the network as a P2P group; any alphanumeric string can be used after "DIRECT-" prefix; empirically, the documented format `DIRECT-"random two octets"` (with optional postfix) is not needed.
 -	A `mode=3` directive shall be present, meaning [WPAS_MODE_P2P_GO](https://w1.fi/wpa_supplicant/devel/structwpa__ssid.html), otherwise the related `p2p_group_add` command fails for unproper group specification.
 -	A `disabled=2` directive shall be present, meaning persistent P2P group, otherwise the stanza is not even recognized and listed as persistent (`disabled=0` indicates normal network; `disabled=1` will announce a disabled network).
 
-If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* creates a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
+If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* creates a generic persistent group, giving it a name with format `DIRECT-"random two octets"`.
 
 The following usage modes of *hostp2pd* are allowed:
 
@@ -174,7 +174,7 @@ The following usage modes of *hostp2pd* are allowed:
 - batch mode (use `-b` option; e.g., `-b -` for standard log output, or `-b output_file_name`)
 - daemon mode (use `-d` option). Suggested configuration. If a daemon process is active, option `-t` terminates a running daemon and option `-r` dynamically reloads the configuration of a running program.
 
-When running as a daemon, *hostp2pd* prevents multiple instances over the same P2P-Device interface by using lock files with name `/var/run/hostp2pd-<interface>.pid`, where `<interface>` is the name of the P2P-Device interface. (For instance, */var/run/hostp2pd-p2p-dev-wlan0.pid*.)
+When running as a daemon, *hostp2pd* prevents multiple instances over the same P2P-Device interface by using lock files with name `/var/run/hostp2pd-"interface".pid`, where `"interface"` is the name of the P2P-Device interface. (For instance, */var/run/hostp2pd-p2p-dev-wlan0.pid*.)
 
 ## hostp2pd.yaml
 
@@ -232,9 +232,9 @@ At the `CMD> ` prompt in interactive mode, *hostp2pd* accepts the following comm
 - `pause` = pause the execution. (Related attribute is `hostp2pd.threadState = THREAD.PAUSED`.)
 - `prompt` = toggle prompt off/on if no argument is used, or change the prompt if using an argument
 - `resume` = resume the execution after pausing; also prints the used device. (Related attribute is `hostp2pd.threadState = THREAD.ACTIVE`)
-- `wait <n>` = delay the execution of the next command of `<n>` seconds (floating point number; default is 10 seconds)
+- `wait "n"` = delay the execution of the next command of `"n"` seconds (floating point number; default is 10 seconds)
 - `color` = toggle off/on the usage of colors in the prompt
-- `history [<n>]` = print the last 20 items of the command history; if an argument is given, print the last n items in the history; with argument *clear*, clears the history. The command history is permanently saved to file *.hostp2pd_mgr_history* within the home directory.
+- `history ["n"]` = print the last 20 items of the command history; if an argument is given, print the last n items in the history; with argument *clear*, clears the history. The command history is permanently saved to file *.hostp2pd_mgr_history* within the home directory.
 
 In addition to the previously listed keywords, any Python command is allowed to query/configure the backend thread.
 
@@ -242,10 +242,11 @@ At the command prompt, cursors and [keyboard shortcuts](https://github.com/chzye
 
 # Limitations
 
-The current implementation has the following limitations:
+The current *hostp2pd* implementation has the following limitations:
 
-- tested with an Android 10 smartphone connecting to a Raspberry Pi 4 with Wi-Fi Direct protocol (and also using AP mode)
+- tested with an Android 10 smartphone connecting to a Raspberry Pi 4 with Wi-Fi Direct protocol (and also using AP mode); all [use cases](#use-cases) are referred to this scenario.
 - At the moment, only one P2P GO active group is managed for a specific P2P-Device, even if more instances of hostp2pd are allowed, each one referred to a specific P2P-Device (generally a specific wireless wlan board). This is because *wpa_supplicant* appears to announce the P2P-Device id to the Android clients (ref. "device_name" in the related configuration, which is the same for all groups) and not the specific active P2P GO groups; likewise, it is not known how an Android client can inform *wpa_supplicant* to enrol a specific group of a known P2P-device through the default Wi-Fi Direct user interface. Notice also that some wireless drivers only allow one P2P-GO group; in case more P2P-GO group are defined, only the first one in the configuration file is used (e.g., the first group listed by the *wpa_cli* `list_networks` command including `[P2P-PERSISTENT]`); in case a persistent group is active, it is linked to the *wpa_supplicant* configuration with same SSID. If a group is not created, the first P2P client connection creates a dynamic group; all other P2P client connections are enrolled to the same group.
+- The authorization process (WPS enrollment) is always done if a P2P Client asks to connect, regardless the group selected by the client.
 - Tested with only one station; two or more stations should concurrently connect to the same persistent group.
 - Only the first persistent group configured in *wpa_supplicant.conf* is used; other groups can be defined in the configuration, but they are not automatically activated.
 - as hostp2pd is fully unattended, the following WPS credential methods are available: *pbc* and *keypad*. The *display* configuration method (much more secure than *keypad*) is not implemented and need interaction (to insert the PIN presented by the Android handset). This means that at the moment the enrolment is done with a either static PIN saved in the hostp2p.yaml configuration file (or passed to the object) or with no PIN at all (PBC mode). To protect PBC (no PIN), a list of enabled enrollees names can be defined. Notice that this is a weak authentication method, because the enrollees names are publicly announced.
@@ -288,7 +289,7 @@ When running as a daemon, standard and error outputs are closed, but log file is
 The program allows the following configuration methods, which can be configured in *hostp2pd.yaml*:
 
 - `pbc_in_use: None`: setting *pbc_in_use* to *None* will retrieve the configuration method defined in *wpa_supplicant.conf* (this is the suggested mode, where also the `keypad` method is the suggested one to adopt in *wpa_supplicant.conf*)
-- `pbc_in_use: False`: force the *keypad* configuration method, using `password: "<8 digits>"` configured in *hostp2pd.yaml*. (Notice also that any password different from eight digits is not accepted by *wpa_supplicant*.)
+- `pbc_in_use: False`: force the *keypad* configuration method, using `password: "8 digits"` configured in *hostp2pd.yaml*. (Notice also that any password different from eight digits is not accepted by *wpa_supplicant*.)
 - `pbc_in_use: True`: force the *virtual_push_button* configuration method, performing the enrolment without password.
 
 Notice that the keypad password shall be of exactly 8 digits (ref. `p2p_passphrase_len=8`, which is a default configuration in *wpa_supplicant.conf*).
@@ -313,13 +314,15 @@ Negotiated on demand|`activate_persistent_group: False`, `activate_autonomous_gr
 Autonomous on demand|`activate_persistent_group: False`, `activate_autonomous_group: False`, `dynamic_group: False`|P2P Group Formation using on-demand Autonomous GO Method, configuring a non-persistent autonomous group activated upon the first connection: *hostp2pd* uses `p2p_connect` to setup the first session, while all subsequent connections are managed through WPS enrollment. Once created, the related virtual network interface will be kept active. Authorization process is always done, slow the first time (when the group formation is required on the GO).
 Autonomous|`activate_persistent_group: False`, `activate_autonomous_group: True`, `dynamic_group: False`|P2P Group Formation using Autonomous GO Method, configuring a non-persistent autonomous group at startup (using `p2p_group_create`); all connections are managed through WPS enrollment. The related virtual network interface will be always active.  Authorization process is always done.
 Persistent|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: False`|The persistent group is autonomously activated at program startup. All connections are managed through the WPS enrollment technique. A virtual network interface is constantly active. If the persistent group is predefined in *wpa_supplicant.conf*, it is restarted, otherwise a new persistent group is created. Authorization process is slow the first time (if the persistent group is not saved in the peer), then fast. Usage of persistent group predefined in *wpa_supplicant.conf* is the suggested method.
-Negotiated persistent|(not used)|Negotiated persistent group (`p2p_connect ... persistent|persistent=<network id>`) is not used in this version of *hostp2pd*.
+Negotiated persistent|(not used)|Negotiated persistent group (`p2p_connect ... persistent|persistent="network id"`) is not used in this version of *hostp2pd*.
 
 If a whitelist (`white_list: ...`) is configured with PCB (`pbc_in_use: True` or `config_methods=virtual_push_button`) and if the client name does not correspond to any whitelisted names, then the configuration method is changed from *pbc* to *keypad*.
 
 Internally, connections to Autonomous/Persistent Groups are managed by a subprocess named Enroller, which does `wps_pin` or `wps_pbc` over the group interface. The `interface` and `list_networks` commands of wpa_cli are used to check groups. `p2p_find` is periodically executed to ensure that announcements are always performed (especially when [P2P group beacons](https://en.wikipedia.org/wiki/Beacon_frame) are not active). A number of events are managed.
 
 Using standard group negotiation method with fixed password, an Android client will not save the password (the authorization has to be performed on every connection). Using persistent groups, a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction).
+
+Invitation (`p2p_invite`) is not used by the current version of *hostp2pd*, which is at the moment designed to enable integration of the Wi-Fi Direct Android connection panel with a P2P-GO group on UNIX systems running *wpa_supplicant*; in such use case, invitation is not actually needed, because the Android user must manually form the connection and the Android 10 P2P client announces itself (*P2P-DEVICE-FOUND*) only at connection time.
 
 # Logging
 
@@ -389,7 +392,7 @@ When a group is activated, a second [process](https://docs.python.org/3/library/
 
 To configure Wi-Fi Direct on a Raspberry Pi, follow [this link](https://raspberrypi.stackexchange.com/q/117238/126729).
 
-Notice that with Raspberry Pi, running AP and P2P concurrently is not supported. Specifically, if a command like `iw dev wlan0 interface add uap0 type __ap` is issued to create a virtual Wi-Fi interface (in order for an access point to be managed for instance by *hostapd*), `wpa_cli -i p2p-dev-wlan0 p2p_connect <address> pbc` subsequently fails to create the *p2p-wlan0-0* interface and *wpa_supplicant* returns EBUSY error code -16 (Device or resource busy). Deleting the virtual interface (via `iw dev uap0 del`) restores the correct behavior.
+Notice that with Raspberry Pi, running AP and P2P concurrently is not supported. Specifically, if a command like `iw dev wlan0 interface add uap0 type __ap` is issued to create a virtual Wi-Fi interface (in order for an access point to be managed for instance by *hostapd*), `wpa_cli -i p2p-dev-wlan0 p2p_connect "address" pbc` subsequently fails to create the *p2p-wlan0-0* interface and *wpa_supplicant* returns EBUSY error code -16 (Device or resource busy). Deleting the virtual interface (via `iw dev uap0 del`) restores the correct behavior.
 
 # MAC Randomization
 
