@@ -46,7 +46,7 @@ python3 -m hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
 ```
 
 - `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the physical interface *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
-- `-c` option: a configuration file ([here](hostp2pd.yaml) an example) is not strictly necessary to start the first test; a minimum parameter would be the password, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
+- `-c` option: a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file ([here](hostp2pd.yaml) an example) is not strictly necessary to start the first test; a minimum parameter would be the password, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
   ```shell
   python3 -m hostp2pd -i p2p-dev-wlan0 -c - <<\eof
   password: "00000000"
@@ -355,8 +355,10 @@ To browse the log files, [lnav](https://github.com/tstack/lnav) is suggested.
 All arguments are optional.
 
 ```python
+from hostp2pd.hostp2pd import HostP2pD
+
 hostp2pd = HostP2pD(
-    config_file=config_file,    # optional pathname of the hostp2pd.yaml configuration file
+    config_file="config_file",  # optional pathname of the hostp2pd.yaml configuration file
     interface="p2p-dev-wlan0",  # optional string defining the wlan interface (check it with iw dev)
     run_program="",             # optional run_program
     force_logging=None,         # optional logging mode
