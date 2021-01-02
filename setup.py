@@ -8,13 +8,14 @@
 #########################################################################
 
 from setuptools import setup, find_packages
+from .__version__ import __version__
 
 with open("README.md", "r") as readme:
     long_description = readme.read()
 
 setup(
     name="hostp2pd",
-    version="0.1.0",
+    version=__version__,
     description=("Wi-Fi Direct Session Manager, implementing a host AP daemon in Wi-Fi Direct mode, including P2P WPS enrollment"),
     long_description=long_description[:long_description.find('# Connecting')],
     long_description_content_type="text/markdown",
