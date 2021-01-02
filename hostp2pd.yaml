@@ -22,11 +22,8 @@ hostp2pd:
 #  pbc_in_use: None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
 #  activate_persistent_group: True # Activate a persistent group at process startup
 #  activate_autonomous_group: False # Activate an autonomous group at process startup
-
-  activate_autonomous_group: False
-  activate_persistent_group: True
-#  max_negotiation_time: 120 # seconds. Time for a station to enter the PIN
 #  dynamic_group: False # allow removing group after a session disconnects
+#  max_negotiation_time: 120 # seconds. Time for a station to enter the PIN
 #  password: "00000000" # password
 #  force_logging: None # force_logging
 #  interface: "p2p-dev-wlan0" # interface

@@ -282,6 +282,7 @@ white_list: <class 'list'>
         self.is_enroller = False # False if I am Core, True if I am Enroller
         self.enroller = None # Core can check this to know Enroller is active
         self.terminate_is_active = False # silence read/write errors if terminating
+        self.persistent_network_id = None # used network number for persistent group
 
 
     def __init__(
@@ -461,11 +462,6 @@ white_list: <class 'list'>
             'and "activate_autonomous_group" are both active. '
             'Considering peristent group.')
             self.activate_autonomous_group = False
-        if self.activate_persistent_group and self.dynamic_group:
-            logging.error('Error: "activate_persistent_group" '
-            'and "dynamic_group" are both active. '
-            'Considering peristent group.')
-            self.dynamic_group = False
 
         if self.is_enroller:
             logging.info(
@@ -601,12 +597,19 @@ white_list: <class 'list'>
         if not station or station == None:
             return
         self.external_program("stop")
+        persistent_postfix = ""
+        if self.activate_persistent_group and self.dynamic_group:
+            persistent_postfix = " persistent"
+            if self.persistent_network_id != None:
+                persistent_postfix += "=" + self.persistent_network_id
         if self.pbc_in_use:
-            self.write_wpa("p2p_connect " + station + " pbc")
+            self.write_wpa("p2p_connect " + station + " pbc" +
+                persistent_postfix)
             logging.warning('Connection request (pbc method): %s', station)
         else:
             self.write_wpa(
-                "p2p_connect " + station + " " + self.password + ' display')
+                "p2p_connect " + station + " " + self.password + ' display' +
+                     persistent_postfix)
             logging.warning('Connection request (PIN method): %s', station)
         self.p2p_connect_time = time.time()
         self.group_type = 'Negotiated (always won)'
@@ -705,7 +708,8 @@ white_list: <class 'list'>
                     self.ssid_group = self.analyze_existing_group(
                         self.monitor_group)
                 if self.monitor_group:
-                    logging.info('Active group interface "%s"', self.monitor_group)
+                    logging.info('Active group interface "%s"',
+                        self.monitor_group)
                 break
             tokens = input_line.split('\t')
             if "P2P-GROUP-STARTED" in tokens[0]:
@@ -714,7 +718,8 @@ white_list: <class 'list'>
                     tokens.pop(0)
                 wait_cmd = 0
                 self.monitor_group = tokens[1]
-                ssid_arg = re.sub(r'.*ssid="([^"]*).*', r'\1', input_line, 1) # read ssid="<name>"
+                ssid_arg = re.sub(
+                    r'.*ssid="([^"]*).*', r'\1', input_line, 1) # read ssid="<name>"
                 if not ssid:
                     ssid = ssid_arg
                 logging.info('Persistent group started %s', self.monitor_group)
@@ -730,15 +735,19 @@ white_list: <class 'list'>
                 break
             if "PONG" in input_line and not wait_cmd:
                 logging.debug(
-                    'Terminating list_start_pers_group without starting any group. ssid="%s"',
+                    'Terminating list_start_pers_group '
+                    'without starting any group. ssid="%s"',
                     ssid)
-                if self.activate_persistent_group and not ssid:
+                if (self.activate_persistent_group
+                        and not self.dynamic_group
+                        and not ssid):
                     self.write_wpa("p2p_group_add persistent")
                     wait_cmd = time.time()
                     logging.warning("Starting generic persistent group")
                     self.group_type = 'Generic persistent'
                     time.sleep(1)
                 else:
+                    self.write_wpa("p2p_find")
                     break
             if len(tokens) == 0: # remove null line
                 continue
@@ -746,13 +755,17 @@ white_list: <class 'list'>
                 continue
             if len(tokens) == 4 and '[P2P-PERSISTENT]' in tokens[3] and tokens[0].isnumeric():
                 ssid = tokens[1]
+                self.persistent_network_id = tokens[0]
                 if not start_group:
                     continue
                 self.external_program("stop")
-                self.write_wpa("p2p_group_add persistent=" + tokens[0])
+                self.write_wpa("p2p_group_add persistent=" + self.persistent_network_id)
                 self.group_type = 'Persistent'
                 wait_cmd = time.time()
-                logging.warning("Starting the first persistent group in the wpa_supplicant conf file: '%s'", ssid)
+                logging.warning(
+                        'Starting the first persistent group n. %s '
+                        'in the wpa_supplicant conf file: "%s"',
+                    self.persistent_network_id, ssid)
                 time.sleep(1)
         return ssid
 
@@ -991,6 +1004,7 @@ white_list: <class 'list'>
         p2p_dev_addr = re.sub(r".*p2p_dev_addr=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "p2p_dev_addr="
         pri_dev_type = re.sub(r".*pri_dev_type=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "pri_dev_type="
         ssid_arg = re.sub(r'.*ssid="([^"]*).*', r'\1', wpa_cli, 1) # read ssid="<name>"
+        persistent_arg = re.sub(r'.*persistent=([0-9]*).*', r'\1', wpa_cli, 1) # read persistent=number
 
         if self.warn_on_input_errors(wpa_cli):
             #if ((self.is_enroller and self.wpa_supplicant_errors) or
@@ -1054,7 +1068,11 @@ white_list: <class 'list'>
                         self.monitor_group)
                 else:
                     self.ssid_group = self.list_start_pers_group(
-                        start_group=self.activate_persistent_group)
+                        start_group=(
+                            self.activate_persistent_group
+                            and not self.dynamic_group
+                            )
+                        )
                 if self.ssid_group:
                     logging.info('Configured autonomous/persistent group "%s"',
                         self.ssid_group)
@@ -1283,7 +1301,7 @@ white_list: <class 'list'>
             logging.warning('Station "%s" disconnected.', p2p_dev_addr)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_group:
+            if self.dynamic_group and not self.activate_persistent_group:
                 if self.monitor_group:
                     self.write_wpa("p2p_group_remove " + self.monitor_group)
                     self.monitor_group = ''
@@ -1296,10 +1314,11 @@ white_list: <class 'list'>
 
         # <3>P2P-PROV-DISC-FAILURE p2p_dev_addr=b6:3b:9b:7a:08:96 status=1
         if event_name == 'P2P-PROV-DISC-FAILURE':
-            logging.warning('Provision discovery failed for station "%s".', p2p_dev_addr)
+            logging.warning('Provision discovery failed for station "%s".',
+                p2p_dev_addr)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_group:
+            if self.dynamic_group and not self.activate_persistent_group:
                 if self.monitor_group:
                     self.write_wpa("p2p_group_remove " + self.monitor_group)
                     self.monitor_group = ''
@@ -1312,6 +1331,8 @@ white_list: <class 'list'>
 
         # <3>P2P-INVITATION-ACCEPTED sa=5a:5f:0a:96:ee:5e persistent=4 freq=5220
         if event_name == 'P2P-INVITATION-ACCEPTED':
+            logging.warning('Accepted invitation to persistent group %s.',
+                persistent_arg)
             self.find_timing_level = 'connect'
             self.external_program("stop")
             return True
@@ -1373,7 +1394,7 @@ white_list: <class 'list'>
             self.monitor_group = None
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_group:
+            if self.dynamic_group and not self.activate_persistent_group:
                 self.num_failures += 1
                 if self.num_failures < self.max_num_failures:
                     logging.warning(
@@ -1390,7 +1411,7 @@ white_list: <class 'list'>
                 return True
             else:
                 logging.critical(
-                    'Group formation failed (P2P-GROUP-FORMATION-FAILURE). Terminating.')
+                    'Group formation failed (P2P-GROUP-FORMATION-FAILURE).')
                 return True
                 #self.terminate()
                 #return False
@@ -1398,7 +1419,7 @@ white_list: <class 'list'>
         if event_name == 'P2P-GO-NEG-FAILURE':
             self.find_timing_level = 'normal'
             self.p2p_connect_time = 0
-            if self.dynamic_group:
+            if self.dynamic_group and not self.activate_persistent_group:
                 self.num_failures += 1
                 if self.num_failures < self.max_num_failures:
                     logging.warning(
@@ -1417,7 +1438,7 @@ white_list: <class 'list'>
         if event_name == 'FAIL':
             self.find_timing_level = 'normal'
             self.p2p_connect_time = 0
-            if self.dynamic_group:
+            if self.dynamic_group and not self.activate_persistent_group:
                 logging.info('Connection failed')
                 self.monitor_group = self.list_or_remove_group(True)
                 self.num_failures += 1

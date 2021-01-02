@@ -212,6 +212,7 @@ class Interpreter(Cmd):
         print(format_string.format("SSID persistent/autonomous group", self.hostp2pd.ssid_group))
         print(format_string.format("Active group", self.hostp2pd.monitor_group))
         print(format_string.format("Group formation technique", self.hostp2pd.group_type))
+        print(format_string.format("Persistent group number (net id)", self.hostp2pd.persistent_network_id))
         print(format_string.format("Activation/deactivation program", self.hostp2pd.run_program))
         print(format_string.format("Deactivation program was run", self.hostp2pd.run_prog_stopped))
         print(format_string.format("Thread backend state", self.hostp2pd.THREAD.state[self.hostp2pd.threadState]))
