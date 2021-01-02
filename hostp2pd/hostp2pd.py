@@ -26,7 +26,8 @@ from select import select
 import signal
 from distutils.spawn import find_executable
 from multiprocessing import Process, Manager
-from hostp2pd.__version__ import __version__
+from .__version__ import __version__
+
 
 def get_type(value, conf_schema):
     if isinstance(value, dict):

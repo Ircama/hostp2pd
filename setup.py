@@ -8,7 +8,7 @@
 #########################################################################
 
 from setuptools import setup, find_packages
-from .__version__ import __version__
+from hostp2pd.__version__ import __version__
 
 with open("README.md", "r") as readme:
     long_description = readme.read()
