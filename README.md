@@ -19,15 +19,9 @@ Apple iOS devices do not support Wi-Fi Direct, but can concurrently connect to a
 
 # Installation
 
+Check that the Python version is 3.5 or higher, then install *hostp2pd* with the following command:
+
 ```shell
-# Checking Python version (should be 3.5 or higher)
-python3 -V
-
-# Installing prerequisites
-python3 -m pip install pyyaml
-python3 -m pip install python-daemon
-
-# Installing hostp2pd
 python3 -m pip install git+https://github.com/Ircama/hostp2pd.git
 ```
 
@@ -37,9 +31,17 @@ To uninstall:
 python3 -m pip uninstall -y hostp2pd
 ```
 
+Prerequisite components (already included in the installation procedure): pyyaml, python-daemon.
+
 # Usage
 
 To run *hostp2pd* in interactive mode, use the following command:
+
+```shell
+python3 -m hostp2pd
+```
+
+Using a P2P-Device interface and a configuration file:
 
 ```shell
 python3 -m hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
