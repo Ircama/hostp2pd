@@ -221,9 +221,9 @@ systemctl start hostp2pd
 exit
 ```
 
-# Configuration methods
+# WPS Authorization methods
 
-The program allows the following configuration methods, which can be configured in *hostp2pd.yaml*:
+The program allows the following WPS authorization methods, named "config_methods"/configuration methods in *wpa_supplicant*, which can be defined in *hostp2pd.yaml*:
 
 - `pbc_in_use: None`: setting *pbc_in_use* to *None* will retrieve the configuration method defined in *wpa_supplicant.conf* (this is the suggested mode, where also the `keypad` method is the suggested one to adopt in *wpa_supplicant.conf*)
 - `pbc_in_use: False`: force the *keypad* configuration method, using `password: "8 digits"` configured in *hostp2pd.yaml*. (Notice also that any password different from eight digits is not accepted by *wpa_supplicant*.)
