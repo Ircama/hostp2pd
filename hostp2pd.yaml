@@ -28,7 +28,7 @@ hostp2pd:
 #  force_logging: None # force_logging
 #  interface: "p2p-dev-wlan0" # interface
 #  run_program: "" # run_program
-#  white_list: # white_list
+#  pbc_white_list: # name white list for push button (pbc) enrolment
 #  - "test1"
 #  - "test2"
 

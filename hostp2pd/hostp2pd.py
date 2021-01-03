@@ -106,7 +106,7 @@ class HostP2pD:
     force_logging = None # default force_logging
     interface = 'p2p-dev-wlan0' # default interface
     run_program = '' # default run_program
-    white_list = [] # default white_list
+    pbc_white_list = [] # default name white list for push button (pbc) enrolment
     conf_schema = '''
 %YAML 1.1
 ---
@@ -129,7 +129,7 @@ password: <class 'str'>
 force_logging: <class 'bool'>
 interface: <class 'str'>
 run_program: <class 'str'>
-white_list: <class 'list'>
+pbc_white_list: <class 'list'>
 '''
     ################# End of static configuration ##################################
 
@@ -318,7 +318,7 @@ white_list: <class 'list'>
             interface=interface,
             run_program=run_program,
             force_logging=force_logging,
-            white_list=white_list,
+            pbc_white_list=pbc_white_list,
             password=password):
 
         os.umask(0o077) # protect reserved information in logging
@@ -336,7 +336,7 @@ white_list: <class 'list'>
         self.interface = interface
         self.run_program = run_program
         self.force_logging = force_logging
-        self.white_list = white_list
+        self.pbc_white_list = pbc_white_list
         self.password = password
 
 
@@ -1221,7 +1221,7 @@ white_list: <class 'list'>
                 dev_name, mac_addr)
 
             if self.pbc_in_use and (
-                    self.white_list == [] or dev_name in self.white_list):
+                    self.pbc_white_list == [] or dev_name in self.pbc_white_list):
                 self.write_wpa("wps_pbc " + mac_addr)
             else:
                 self.write_wpa("wps_pin " + mac_addr + " " + self.password)
@@ -1256,7 +1256,7 @@ white_list: <class 'list'>
                 if not mac_addr in self.addr_register:
                     logging.error('While pbc is in use, cannot find name related to address "%s".', mac_addr)
                     return True
-                if self.white_list != [] and not self.addr_register[mac_addr] in self.white_list:
+                if self.pbc_white_list != [] and not self.addr_register[mac_addr] in self.pbc_white_list:
                     self.rotate_config_method()
                     return True
             if self.monitor_group:
@@ -1313,7 +1313,7 @@ white_list: <class 'list'>
             if (event_name == 'P2P-PROV-DISC-PBC-REQ'
                     and self.pbc_in_use
                     and dev_name):
-                if self.white_list != [] and not dev_name in self.white_list:
+                if self.pbc_white_list != [] and not dev_name in self.pbc_white_list:
                     self.rotate_config_method()
                     return True
                 if self.monitor_group:

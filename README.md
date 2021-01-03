@@ -257,7 +257,7 @@ Using standard group negotiation method with fixed password, an Android client w
 
 In all cases that foresee a negotiation (usage of `p2p_connect`), the UNIX System will always become GO (ref. `p2p_go_intent=15` in *wpa_supplicant.conf*).
 
-If a whitelist (`white_list: ...`) is configured with PCB (`pbc_in_use: True` or `config_methods=virtual_push_button`) and if the client name does not correspond to any whitelisted names, then the configuration method is changed from *pbc* to *keypad*.
+If a whitelist (`pbc_white_list: ...`) is configured with PCB (`pbc_in_use: True` or `config_methods=virtual_push_button`) and if the client name does not correspond to any whitelisted names, then the configuration method is changed from *pbc* to *keypad*.
 
 Internally, connections to Autonomous/Persistent Groups are managed by a subprocess named Enroller, which does `wps_pin` or `wps_pbc` over the group interface. The `interface` and `list_networks` commands of *wpa_cli* are used to check groups. `p2p_find` is periodically executed to ensure that announcements are performed (especially when [P2P group beacons](https://en.wikipedia.org/wiki/Beacon_frame) are not active). A number of events are managed.
 
@@ -380,7 +380,7 @@ hostp2pd = HostP2pD(
     interface="p2p-dev-wlan0",  # optional string defining the wlan interface (check it with iw dev)
     run_program="",             # optional run_program
     force_logging=None,         # optional logging mode
-    white_list=[],              # optional white list of allowed PBC station names
+    pbc_white_list=[],          # optional name white list of allowed PBC station names
     password="00000000")        # optional PIN of keypad enrolment
 ```
 
