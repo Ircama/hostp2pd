@@ -466,14 +466,17 @@ white_list: <class 'list'>
             return True
         return False
 
+
     def terminate_enrol(self):
         """ Core terminates active Enroller process """
         if self.check_enrol():
-            logging.debug("Terminating Enroller process.")
-            self.enroller.terminate()
-            self.enroller.join(2)
-            logging.debug("Enroller process terminated.")
+            enroller = self.enroller
             self.enroller = None
+            logging.debug("Terminating Enroller process.")
+            time.sleep(0.5)
+            enroller.terminate()
+            enroller.join(2)
+            logging.debug("Enroller process terminated.")
 
 
     def run(self, enrol_group=None):
@@ -554,12 +557,18 @@ white_list: <class 'list'>
                 if len(reads) > 0:
                     c = os.read(self.master_fd, 1).decode('utf8', 'ignore')
                 else:
-                    ret = self.process.poll()
-                    if ret != None:
-                        logging.critical(
-                            'wpa_cli died with return code %s.'
-                            ' Terminating hostp2pd.', ret)
-                        os.kill(os.getpid(), signal.SIGTERM)
+                    # Here some periodic tasks are handled:
+                    
+                    # Controlling whether an active Enroller died
+                    if self.process != None:
+                        ret = self.process.poll()
+                        if ret != None: # Enroller died with ret code
+                            logging.critical(
+                                'wpa_cli died with return code %s.'
+                                ' Terminating hostp2pd.', ret)
+                            os.kill(os.getpid(), signal.SIGTERM)
+
+                    # Controlling frequency of periodic "p2p_find" and sending it
                     if (self.max_scan_polling > 0 and
                             self.scan_polling > self.max_scan_polling):
                         logging.info(
@@ -1170,11 +1179,11 @@ white_list: <class 'list'>
             return True
 
         # <3>CTRL-EVENT-EAP-STARTED 56:3b:c6:4a:4a:b3
-        if event_name == 'CTRL-EVENT-EAP-STARTED':
+        if event_name == 'CTRL-EVENT-EAP-STARTED': # only on the GO (Enroller)
             return True
 
         # <3>CTRL-EVENT-EAP-PROPOSED-METHOD vendor=0 method=1
-        if event_name == 'CTRL-EVENT-EAP-PROPOSED-METHOD':
+        if event_name == 'CTRL-EVENT-EAP-PROPOSED-METHOD': # only on the GO (Enroller)
             logging.debug(
                 "(enroller) Proposed method %s %s",
                 wpa_cli_word[1], wpa_cli_word[2])
@@ -1189,7 +1198,7 @@ white_list: <class 'list'>
             return True
 
         # <3>CTRL-EVENT-EAP-FAILURE 56:3b:c6:4a:4a:b3
-        if event_name == 'CTRL-EVENT-EAP-FAILURE':
+        if event_name == 'CTRL-EVENT-EAP-FAILURE': # only on the GO (Enroller)
             return True
 
         # <3>AP-STA-CONNECTED 56:3b:c6:4a:4a:b3 p2p_dev_addr=56:3b:c6:4a:4a:b3
@@ -1207,7 +1216,7 @@ white_list: <class 'list'>
             return True
 
         # <3>WPS-ENROLLEE-SEEN 56:3b:c6:4a:4a:b3 811e2280-33d1-5ce8-97e5-6fcf1598c173 10-0050F204-5 0x4388 0 1 [test]
-        if event_name == 'WPS-ENROLLEE-SEEN':
+        if event_name == 'WPS-ENROLLEE-SEEN': # only on the GO (Enroller)
             logging.debug('Found station "%s" with address "%s".',
                 dev_name, mac_addr)
 
