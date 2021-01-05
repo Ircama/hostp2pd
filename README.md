@@ -235,7 +235,7 @@ Autonomous|`activate_persistent_group: False`, `activate_autonomous_group: True`
 Persistent on demand|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: True`|Negotiated persistent group. To setup the first session, *hostp2pd* uses `p2p_connect ... persistent or persistent=<network id>`, depending on the existence of a valid persistent group in *wpa_supplicant* configuration file). The authorization process is only performed the first time (slow), than all reconnections are pretty fast and fully automated by *wpa_supplicant*. With this setting, the P2P Client is able on demand to automatically restart the P2P-GO group on the UNIX system and then connect to this group without WPS enrolment. So, after the P2P-GO group is saved to the P2P Client, any subsequent reconnection of the same client is not mediated by *hostp2pd*; the only task of *hostp2pd* is to enrol new clients, in order to allow them to locally save the persistent group. The related virtual network interface is activated only on demand and then kept active.
 Persistent|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: False`|The persistent group is autonomously activated at program startup. If the persistent group is predefined in *wpa_supplicant.conf*, it is restarted, otherwise a new persistent group is created. The virtual network interface is kept constantly active. The authorization process of a P2P Device is only performed the first time (if the persistent group is not saved in the peer), through WPS enrolment technique; after the persistent group data is saved to the P2P Device, all reconnections of the same device are fast and automatically done without WPS enrolment (so not mediated by *hostp2pd*). Usage of persistent group predefined in *wpa_supplicant.conf* is the suggested method.
 
-Using the standard group negotiation method with fixed password, an Android client will not save the password (the authorization has to be performed on every connection). Using persistent groups, a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction). Wi-Fi Direct is present in most smartphones with at least Android 4.0. Notice anyway that only recent Android versions support the local collection of persistent groups. Android 10+ supports it for instance, while Android 7 does not, so an Android 7 device always needs enrolment when connecting a persistent group.
+Using the standard group negotiation method with fixed password, an Android client will not save the password (the authorization has to be performed on every connection). Using persistent groups, a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction). Ref. also [Compatibility](#Compatibility)
 
 In all cases that foresee a negotiation (usage of `p2p_connect`), the UNIX System will always become GO (ref. `p2p_go_intent=15` in *wpa_supplicant.conf*).
 
@@ -249,13 +249,13 @@ Invitation (`p2p_invite`) is not used by the current version of *hostp2pd*, whic
 
 # Compatibility
 
+Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
+
 *hostp2pd* has been tested with:
 
-- wpa_cli and wpa_supplicant version v2.8-devel
-- Android 10 and Android 7 P2P Clients
+- UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster); the recompiled code to overcome the [MAC randomization issue with persistent groups](#mac-randomization) is based on *wpa_supplicant* version [v2.10-devel-hostap_2_9-1798-g581dfcc41+.](http://w1.fi/cgit/hostap).
 - Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 is not supported.
-
-Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
+- P2P Clients including Android 10 and Android 7 smartphones. Wi-Fi Direct is present in most smartphones with at least Android 4.0; notice anyway that only recent Android versions support the local saving of persistent groups. Android 10+ supports it for instance, while Android 7 does not, so an Android 7 device always needs enrolment when connecting a persistent group. Android 10 has a very slow notification of announced groups and needs to exit and re-enter the Wi-Fi Direct panel each time a connection is disconnected and then reconnected. Android 7 does not require exiting and re-entering; it also shows the UNIX system immediately, including the AP icon (not shown by Android 10). Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
 
 ## Built-in keywords
 
