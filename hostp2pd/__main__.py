@@ -18,6 +18,7 @@ try:
     from cmd import Cmd
     import rlcompleter
     import glob
+    import os
     import os.path
     import argparse
     import signal
@@ -505,6 +506,7 @@ if __name__ == '__main__':
             working_directory=DAEMON_DIR,
             umask=DAEMON_UMASK,
             pidfile=pidfile,
+            detach_process=True,
             stdin=sys.stdin if args.debug else None,
             stdout=sys.stdout if args.debug else None,
             stderr=sys.stderr if args.debug else None,

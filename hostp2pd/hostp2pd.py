@@ -310,6 +310,9 @@ pbc_white_list: <class 'list'>
         self.is_enroller = False # False if I am Core, True if I am Enroller
         self.enroller = None # Core can check this to know Enroller is active
         self.terminate_is_active = False # silence read/write errors if terminating
+        self.statistics = {}
+        self.addr_register = {}
+        self.is_daemon = False
 
 
     def __init__(
@@ -322,13 +325,7 @@ pbc_white_list: <class 'list'>
             password=password):
 
         os.umask(0o077) # protect reserved information in logging
-
-        # Shared data between Core and Enroller
-        self.manager = Manager()
         self.logger = logging.getLogger()
-        self.statistics = self.manager.dict()
-        self.addr_register = self.manager.dict()
-
         self.set_defaults()
 
         # Argument handling
@@ -389,13 +386,11 @@ pbc_white_list: <class 'list'>
 
     def terminate(self):
         """ hostp2pd termination procedure """
+        if self.terminate_is_active:
+            return False
         self.terminate_is_active = True
         logging.debug("Start termination procedure.")
         self.terminate_enrol()
-        if not self.slave_fd:
-            logging.error("Not started.")
-            self.terminate_is_active = False
-            return False
         if self.thread and self.threadState != self.THREAD.STOPPED:
             self.threadState = self.THREAD.STOPPED
             time.sleep(0.1)
@@ -405,8 +400,10 @@ pbc_white_list: <class 'list'>
                 logging.debug("Cannot join current thread.")
             self.thread = None
         try:
-            os.close(self.slave_fd)
-            os.close(self.master_fd)
+            if self.slave_fd:
+                os.close(self.slave_fd)
+            if self.master_fd:
+                os.close(self.master_fd)
         except:
             logging.debug("Cannot close file descriptors.")
         if self.process != None:
@@ -417,20 +414,16 @@ pbc_white_list: <class 'list'>
                 logging.debug("wpa_cli process not terminated.")
             self.set_defaults()
         logging.debug("Terminated.")
-        self.terminate_is_active = False
         return True
 
 
-    def run_enrol(self, child=False, statistics=None, addr_register=None):
+    def run_enrol(self, child=False):
         """ Core starts the Enroller child; child activates itself """
         if not child and self.check_enrol():
             return # Avoid double instance of the Enroller process
         if child: # I am Enroller
             threading.current_thread().name = "Enroller"
-
-            # Shared data
-            self.statistics = statistics
-            self.addr_register = addr_register
+            self.enroller.name = threading.current_thread().name
 
             # Receive SIGTERM if the father dies
             libc = ctypes.CDLL(find_library("c"))
@@ -441,16 +434,28 @@ pbc_white_list: <class 'list'>
             if not self.monitor_group:
                 logging.critical("PANIC - Internal error: null monitor_group")
                 return
-            self.run(self.monitor_group)
+            self.is_enroller = True
+            self.father_slave_fd = self.slave_fd
+            self.interface = self.monitor_group
+            signal.SIGTERM: lambda signum, frame: self.terminate();
+            signal.SIGINT: lambda signum, frame: self.terminate();
+            signal.signal( # Allow reloading enroller configuration with SIGHUP
+                signal.SIGHUP, lambda signum, frame: self.read_configuration(
+                    configuration_file=self.config_file,
+                    do_activation=True)
+                )
+            try:
+                self.run()
+            except KeyboardInterrupt:
+                logging.debug("Enroller interrupted.")
+                self.terminate()
+                return None
         else: # I am Core
             self.enroller = Process(
                 target=self.run_enrol,
-                args=(
-                    True,
-                    self.statistics,
-                    self.addr_register,
-                )
+                args=(True,)
             )
+            self.enroller.daemon = True
             self.enroller.start()
             logging.debug("Starting enroller process with PID %s",
                 self.enroller.pid)
@@ -479,17 +484,11 @@ pbc_white_list: <class 'list'>
             logging.debug("Enroller process terminated.")
 
 
-    def run(self, enrol_group=None):
+    def run(self):
         """ Main procedure """
-        if enrol_group:
-            self.is_enroller = True
-            self.interface = enrol_group
-            signal.signal( # Allow reloading enroller configuration with SIGHUP
-                signal.SIGHUP, lambda signum, frame: self.read_configuration(
-                    configuration_file=self.config_file,
-                    do_activation=True)
-                )
-        else:
+        if (os.getppid() == 1 and os.getpgrp() == os.getsid(0)):
+            self.is_daemon = True
+        if not self.is_enroller:
             threading.current_thread().name = "Core"
         if self.is_enroller or self.process == None:
             if not self.start_process():
@@ -508,9 +507,12 @@ pbc_white_list: <class 'list'>
                 self.monitor_group)
         else:
             logging.warning(
-                '_____________________________'
-                'hostp2pd Service started (v%s)'
-                '_____________________________', __version__)
+                '__________'
+                'hostp2pd Service started (v%s) '
+                'PID=%s, PPID=%s, PGRP=%s, SID=%s, is_daemon=%s'
+                '__________',
+                    __version__, os.getpid(), os.getppid(),
+                    os.getpgrp(), os.getsid(0), self.is_daemon)
 
         self.threadState = self.THREAD.ACTIVE
 
@@ -525,11 +527,8 @@ pbc_white_list: <class 'list'>
             # get the command and process it
             self.cmd = self.read_wpa()
             if self.cmd == None:
-                logging.error(
-                    'Internal Error (run): '
-                    'read_wpa() abnormally terminated')
-                time.sleep(0.1)
-                continue
+                self.terminate()
+                return
             if self.threadState == self.THREAD.STOPPED:
                 return
             logging.debug(
@@ -591,6 +590,12 @@ pbc_white_list: <class 'list'>
                     continue # skip carriage returns
 
                 buffer += c
+        except OSError as e:
+            if e.errno == errno.EBADF or e.errno == errno.EIO: # [Errno 9] Bad file descriptor/[Errno 5] Input/output error
+                logging.debug("Read interrupted.")
+            else:
+                logging.critical("PANIC - Internal error in read_wpa(): %s", e, exc_info=True)
+            return None # error
         except Exception as e:
             if  self.terminate_is_active:
                 logging.debug("Read interrupted: %s", e)
@@ -607,7 +612,7 @@ pbc_white_list: <class 'list'>
         try:
             return os.write(self.master_fd, resp.encode())
         except Exception as e:
-            if  not self.terminate_is_active:
+            if not self.terminate_is_active:
                 logging.critical("PANIC - Internal error in write_wpa(): %s", e, exc_info=True)
             return None
 
@@ -947,9 +952,15 @@ pbc_white_list: <class 'list'>
 
         # Update statistics with unknown messages
         if self.can_register_cmds and event_stat_name: # and [c for c in event_stat_name if c.islower()] == []: # uncomment to remove lower case commands from statistics
-            if "unmanaged_" + event_stat_name not in self.statistics:
-                self.statistics[event_stat_name] = 0
-            self.statistics[event_stat_name] += 1
+            unmanaged_event = "unmanaged_" + event_stat_name
+            if self.is_enroller and not self.is_daemon:
+                os.write(self.father_slave_fd,
+                    (("HOSTP2PD_STATISTICS" +
+                        "\t" + unmanaged_event + '\n').encode()))
+                return True
+            if unmanaged_event not in self.statistics:
+                self.statistics[unmanaged_event] = 0
+            self.statistics[unmanaged_event] += 1
         return True
 
 
@@ -1035,6 +1046,16 @@ pbc_white_list: <class 'list'>
         return False
 
 
+    def register_statistics(self, event_stat_name):
+        self.statistics["last_response_message"] = event_stat_name
+        if 'response_messages' not in self.statistics:
+            self.statistics['response_messages'] = 0
+        self.statistics['response_messages'] += 1
+        if event_stat_name not in self.statistics:
+            self.statistics[event_stat_name] = 0
+        self.statistics[event_stat_name] += 1
+
+
     def handle(self, wpa_cli):
         """ handles all events """
         # https://w1.fi/wpa_supplicant/devel/ctrl_iface_page.html
@@ -1070,20 +1091,30 @@ pbc_white_list: <class 'list'>
         self.wpa_supplicant_errors = 0
 
         # Account "self.statistics"
+        if event_name == "HOSTP2PD_ADD_REGISTER":
+            stat_tokens = wpa_cli.split('\t')
+            if stat_tokens[1] and stat_tokens[2]:
+                self.addr_register[stat_tokens[1]] = stat_tokens[2]
+            return True
+        if event_name == "HOSTP2PD_STATISTICS":
+            stat_tokens = wpa_cli.split('\t')
+            if stat_tokens[1]:
+                self.register_statistics("E>" + stat_tokens[1])
+            return True
         if wpa_cli == self.password or event_name == self.password: # do not add the password in statistics
             return True
-        self.statistics["last_response_message"] = event_name
-        if 'response_messages' not in self.statistics:
-            self.statistics['response_messages'] = 0
-        self.statistics['response_messages'] += 1
-
-        event_stat_name = (
-            "E>" + event_name if self.is_enroller else (
-                "<P2P>" if event_name in 'P2P:' else event_name))
-        if self.can_register_cmds and event_name: # and [c for c in event_stat_name if c.islower()] == []: # uncomment to remove lower case commands from statistics
-            if event_stat_name not in self.statistics:
-                self.statistics[event_stat_name] = 0
-            self.statistics[event_stat_name] += 1
+        event_stat_name = ''
+        if event_name:
+            event_stat_name = "<P2P>" if event_name in 'P2P:' else event_name
+        if self.is_enroller:
+            if self.can_register_cmds:
+                if not self.is_daemon:
+                    os.write(self.father_slave_fd,
+                        ("HOSTP2PD_STATISTICS" +
+                            "\t" + event_stat_name + '\n').encode())
+        else:
+            if event_stat_name and self.can_register_cmds:
+                self.register_statistics(event_stat_name)
 
         # Startup procedure
         if self.do_activation:
@@ -1244,7 +1275,12 @@ pbc_white_list: <class 'list'>
 
         # <3>P2P-DEVICE-FOUND ae:e2:d3:41:27:14 p2p_dev_addr=ae:e2:d3:41:a7:14 pri_dev_type=3-0050F204-1 name='test' config_methods=0x0 dev_capab=0x25 group_capab=0x81 vendor_elems=1 new=1
         if event_name == 'P2P-DEVICE-FOUND' and mac_addr:
-            self.addr_register[mac_addr] = dev_name
+            if self.is_enroller:
+                os.write(self.father_slave_fd,
+                    ("HOSTP2PD_ADD_REGISTER" +
+                        "\t" + mac_addr + "\t" + dev_name + '\n').encode())
+            else:
+                self.addr_register[mac_addr] = dev_name
             logging.debug('Found station with name "%s" and address "%s".', dev_name, mac_addr)
             return True
 

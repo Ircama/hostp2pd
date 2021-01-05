@@ -205,12 +205,12 @@ Description=hostp2pd - The Wi-Fi Direct Session Manager
 After=network.target
 
 [Service]
-Type=simple
 Type=forking
-Environment="CONF=/etc/hostp2pd.yaml"
-ExecStart=/usr/bin/python3 -m hostp2pd -c ${CONF} -d
-ExecReload=/usr/bin/python3 -m hostp2pd -c ${CONF} -r
-ExecStop=/usr/bin/python3 -m hostp2pd -c ${CONF} -t
+Environment="CONF=/etc/hostp2pd.yaml" "P2PDEVICE=p2p-dev-wlan0"
+ExecStart=/usr/bin/python3 -m hostp2pd  -i ${P2PDEVICE} -c ${CONF} -d
+ExecReload=/usr/bin/python3 -m hostp2pd -i ${P2PDEVICE} -c ${CONF} -r
+ExecStop=/usr/bin/python3 -m hostp2pd -i ${P2PDEVICE} -c ${CONF} -t
+PIDFile=/var/run/hostp2pd-p2p-dev-wlan0.pid
 
 [Install]
 WantedBy=multi-user.target
@@ -426,7 +426,17 @@ With batch/daemon mode, the "Core" does not run in a background thread.
 
 The "Core" engine starts *wpa_cli* as [subprocess](https://docs.python.org/3/library/subprocess.html) connected to the P2P-Device, bidirectionally interfacing it via [pty](https://docs.python.org/3/library/pty.html), using no-echo mode. The internal "read" function gets one character a time mediated by a [select](https://docs.python.org/3/library/select.html) method which controls read timeout that is used to perform a number of periodic checks.
 
-When a group is activated, a second [process](https://docs.python.org/3/library/multiprocessing.html#reference) is started, named Enroller, to manage WPS Enrolling. This process communicates with the Core thread via [multiprocessing Manager](https://docs.python.org/3/library/multiprocessing.html#sharing-state-between-processes) and in turn starts another *wpa_cli* subprocess, connected to the P2P group, interfaced the same way as what done by the Core.
+When a group is activated, a second [process](https://docs.python.org/3/library/multiprocessing.html#reference) is started, named Enroller, to manage WPS Enrolling. This process writes to the Core via the same pty and in turn starts another *wpa_cli* subprocess, connected to the P2P group, interfaced the same way as what done by the Core.
+
+Example of process list when running as a daemon (p2p-dev-wlan0 is the P2P-Device and p2p-wlan0-0 is the group; the P2P-Device controller is the Core, the group controller is the Enroller):
+
+```
+UID        PID  PPID  C STIME TTY      STAT   TIME CMD
+root     20452     1  4 08:36 ?        S      0:01 /usr/bin/python3 -m hostp2pd -c /etc/hostp2pd.yaml -d
+root     20453 20452  0 08:36 ?        S      0:00  \_ wpa_cli -i p2p-dev-wlan0
+root     20458 20452  0 08:36 ?        S      0:00  \_ /usr/bin/python3 -m hostp2pd -c /etc/hostp2pd.yaml -d
+root     20460 20458  0 08:36 ?        S      0:00      \_ wpa_cli -i p2p-wlan0-0
+```
 
 [Signals](https://docs.python.org/3/library/signal.html) are configured among processes, so that termination is synced. Core sends SIGHUP to Enroller if a configuration needs to be reloaded.
 
