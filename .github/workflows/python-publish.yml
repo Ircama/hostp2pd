@@ -37,11 +37,12 @@ jobs:
         python-version: '3.x'
     # This will download your repository into the CI runner and then install and activate Python
 
-    - name: Install pypa/build
+    - name: Install upgrade pip
       run: >-
         python -m
         pip install
         --upgrade pip
+    - name: Install pypa/build
       run: >-
         python -m
         pip install
