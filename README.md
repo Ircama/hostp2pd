@@ -271,6 +271,7 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
 At the `CMD> ` prompt in interactive mode, *hostp2pd* accepts the following commands:
 
+- `version` = Print hostp2pd version.
 - `loglevel` = If an argument is given, set the logging level, otherwise show the current one. Valid numbers: CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10.
 - `reload` = Reload configuration from the latest valid configuration file. Optional argument is a new configuration file; to load defaults use `reset` as argument.
 - `reset` = Reset the hostp2pd statistics.
