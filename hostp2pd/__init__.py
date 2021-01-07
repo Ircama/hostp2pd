@@ -231,11 +231,11 @@ class Interpreter(Cmd):
         print(format_string.format("wpa_supplicant errors", self.hostp2pd.wpa_supplicant_errors))
         print(format_string.format("Number of scan pollings", self.hostp2pd.scan_polling))
         try:
-            print(format_string.format("wpa_cli process Pid", hostp2pd.process.pid))
+            print(format_string.format("wpa_cli process Pid", self.hostp2pd.process.pid))
         except:
             print("  Error: wpa_cli process ID not existing!")
         try:
-            print(format_string.format("Enroller wpa_cli process Pid", hostp2pd.enroller.pid))
+            print(format_string.format("Enroller wpa_cli process Pid", self.hostp2pd.enroller.pid))
         except:
             print("  Enroller wpa_cli process ID is not existing.")
         
