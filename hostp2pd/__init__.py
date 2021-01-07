@@ -364,7 +364,7 @@ def main():
             ' Session Manager. wpa_cli controller of Wi-Fi '
             ' Direct connections handled by wpa_supplicant.'
         )
-    parser.prog = "python3 -m hostp2pd"
+    parser.prog = "hostp2pd"
     parser.add_argument(
         '-V',
         "--version",
