@@ -35,7 +35,7 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.x'
-    # This will download your repository into the CI runner and then install and activate Python 3.7.
+    # This will download your repository into the CI runner and then install and activate Python
 
     - name: Install pypa/build
       run: >-
