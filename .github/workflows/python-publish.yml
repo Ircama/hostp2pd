@@ -56,14 +56,14 @@ jobs:
 
     - name: Adding build numbers
       run: >-
-        echo Before:;
+        echo "Before:";
         ls -l dist;
         for i in dist/*;
         do j=$(echo ${i}|sed -e 's/^\([^-]*-\)\([0-9]*.[0-9]*.[0-9]*\)/\1\2-${{ github.run_number }}/');
-        echo Moving "%i" to "$j";
-        mv "%i" "$j";
+        echo Moving "$i" to "$j";
+        mv "$i" "$j";
         done;
-        echo After (using build number ${{ github.run_number }}):;
+        echo "After (using build number ${{ github.run_number }}):";
         ls -l dist
 
     - name: Build and publish
