@@ -3,24 +3,32 @@
 
 name: Upload hostp2pd Package to PyPI and TestPyPI
 
+#on:
+#  release:
+#    types: [created]
+
 on: [push]
 
 jobs:
-  build:
-
+  deploy:
+    name: Build and publish Python to PyPI and TestPyPI
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.5, 3.6, 3.7, 3.8]
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
+    - uses: actions/checkout@master
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install hostp2pd
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python-version: '3.x'
+
+    - name: Publish hostp2pd to Test PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        repository_url: https://test.pypi.org/legacy/
+
+    - name: Publish hostp2pd to PyPI
+      #if: startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
