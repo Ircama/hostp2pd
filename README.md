@@ -142,20 +142,20 @@ country=<country ID>                                    # Use your country code 
 p2p_device_persistent_mac_addr=<mac address>            # Fixed MAC address overcoming MAC Randomization, to be used with persistent group
 
 # This is an example of P2P persistent group:
-network={
+network={                                               # Network profile
         ssid="DIRECT-PP-group"                          # Name of the persistent group saved on the Android phone and shown within the AP names;
                                                         # use any name in place of "PP-group" and keep the "DIRECT-" prefix.
+        mode=3                                          # WPAS MODE P2P-GO
+        disabled=2                                      # Persistent P2P group
         psk="mysecretpassword"                          # Password used when connecting to the AP (unrelated to P2P-GO enrolment, which is done via WPS)
-        proto=RSN
+        proto=RSN                                       # For the security parameters, the persistent group profile is like a normal network profile
         key_mgmt=WPA-PSK
         pairwise=CCMP
         auth_alg=OPEN
-        mode=3                                          # WPAS MODE P2P-GO
-        disabled=2                                      # Persistent P2P group
 }
 ```
 
-The above example shows how to predefine a P2P persistent group. Specifically, the `network` stanzas will define persistent GO groups if the following three conditions occur:
+The above example shows how to predefine a P2P persistent group. Specifically, the `network` profiles will define persistent GO groups [if the following three conditions occur](https://www.spinics.net/lists/hostap/msg05313.html):
 
 -	The SSID shall begin with the `DIRECT-...` prefix (P2P_WILDCARD_SSID), otherwise the group is not appropriately announced to the network as a P2P group; any alphanumeric string can be used after `DIRECT-` prefix; empirically, the documented format `DIRECT-<random two octets>` (with optional postfix) is not needed.
 -	A `mode=3` directive shall be present, meaning [WPAS_MODE_P2P_GO](https://w1.fi/wpa_supplicant/devel/structwpa__ssid.html), otherwise the related `p2p_group_add` command fails for unproper group specification.
@@ -235,7 +235,9 @@ Autonomous|`activate_persistent_group: False`, `activate_autonomous_group: True`
 Persistent on demand|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: True`|Negotiated persistent group. To setup the first session, *hostp2pd* uses `p2p_connect ... persistent or persistent=<network id>`, depending on the existence of a valid persistent group in *wpa_supplicant* configuration file). The authorization process is only performed the first time (slow), than all reconnections are pretty fast and fully automated by *wpa_supplicant*. With this setting, the P2P Client is able on demand to automatically restart the P2P-GO group on the UNIX system and then connect to this group without WPS enrolment. So, after the P2P-GO group is saved to the P2P Client, any subsequent reconnection of the same client is not mediated by *hostp2pd*; the only task of *hostp2pd* is to enrol new clients, in order to allow them to locally save the persistent group. The related virtual network interface is activated only on demand and then kept active.
 Persistent|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: False`|The persistent group is autonomously activated at program startup. If the persistent group is predefined in *wpa_supplicant.conf*, it is restarted, otherwise a new persistent group is created. The virtual network interface is kept constantly active. The authorization process of a P2P Device is only performed the first time (if the persistent group is not saved in the peer), through WPS enrolment technique; after the persistent group data is saved to the P2P Device, all reconnections of the same device are fast and automatically done without WPS enrolment (so not mediated by *hostp2pd*). Usage of persistent group predefined in *wpa_supplicant.conf* is the suggested method.
 
-Using the standard group negotiation method with fixed password, an Android client will not save the password (the authorization has to be performed on every connection). Using persistent groups, a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction). Ref. also [Compatibility](#Compatibility)
+Using an autonomous GO for a non-persistent group, the passphrase and SSID are automatically created by *wpa_supplicant* (using random strings) and the related settings should not be modified. A persistent group can be either manually or automatically created.
+
+Using the standard group negotiation method with fixed password, an Android client (at least, up to Android 10) will not save the password (the authorization has to be performed on every connection). Using persistent groups, with newer Android releases a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction). Ref. also [Compatibility](#Compatibility)
 
 In all cases that foresee a negotiation (usage of `p2p_connect`), the UNIX System will always become GO (ref. `p2p_go_intent=15` in *wpa_supplicant.conf*).
 
