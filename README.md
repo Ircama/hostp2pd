@@ -22,7 +22,13 @@ Apple iOS devices do not support Wi-Fi Direct, but can concurrently connect to a
 Check that the Python version is 3.5 or higher, then install *hostp2pd* with the following command:
 
 ```shell
-python3 -m pip install git+https://github.com/Ircama/hostp2pd.git
+python3 -m pip install hostp2pd
+```
+
+To install from GitHub:
+
+```shell
+python3 -m pip install git+https://github.com/Ircama/hostp2pd
 ```
 
 To uninstall:
@@ -31,7 +37,7 @@ To uninstall:
 python3 -m pip uninstall -y hostp2pd
 ```
 
-Prerequisite components (already included in the installation procedure): pyyaml, python-daemon.
+Prerequisite components (already included in the installation procedure): *pyyaml*, *python-daemon*.
 
 # Usage
 
@@ -325,11 +331,12 @@ To browse the log files, [lnav](https://github.com/tstack/lnav) is suggested.
 Output of `python3 -m hostp2pd -h`:
 
 ```
-usage: python3 -m hostp2pd [-h] [-v] [-vv] [-t] [-r] [-c CONFIG_FILE] [-d]
-                           [-b FILE] [-i INTERFACE] [-p RUN_PROGRAM]
+usage: python3 -m hostp2pd [-h] [-V] [-v] [-vv] [-t] [-r] [-c CONFIG_FILE]
+                           [-d] [-b FILE] [-i INTERFACE] [-p RUN_PROGRAM]
 
 optional arguments:
   -h, --help            show this help message and exit
+  -V, --version         print hostp2pd version and exit
   -v, --verbosity       print execution logging
   -vv, --debug          print debug logging information
   -t, --terminate       terminate a daemon process sending SIGTERM
@@ -347,8 +354,8 @@ optional arguments:
                         Name of the program to run with start and stop
                         arguments.
 
-hostp2pd - The Wi-Fi Direct Session Manager. wpa_cli controller of Wi-Fi
-Direct connections handled by wpa_supplicant.
+hostp2pd v.0.1.0 - The Wi-Fi Direct Session Manager. wpa_cli controller of Wi-
+Fi Direct connections handled by wpa_supplicant.
 ```
 
 When running as a daemon, standard and error outputs are closed, but log file is always configurable (see Logging chapter).

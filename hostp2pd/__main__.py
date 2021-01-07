@@ -105,6 +105,10 @@ class Interpreter(Cmd):
             print ("Invalid format")
             return
         sys.exit(0)
+
+    def do_version(self, arg):
+        "Print hostp2pd version."
+        print(f'hostp2pd version {__version__}.')
     
     def do_wait(self, arg):
         "Perform an immediate sleep of the seconds specified in the argument.\n"\
@@ -355,11 +359,17 @@ class Interpreter(Cmd):
 if __name__ == '__main__':
     # Option handling
     parser = argparse.ArgumentParser(
-        epilog='hostp2pd - The Wi-Fi Direct Session Manager.'
-            ' wpa_cli controller of Wi-Fi Direct connections'
-            ' handled by wpa_supplicant.'
+        epilog=f'hostp2pd v.{__version__} - The Wi-Fi Direct '
+            ' Session Manager. wpa_cli controller of Wi-Fi '
+            ' Direct connections handled by wpa_supplicant.'
         )
     parser.prog = "python3 -m hostp2pd"
+    parser.add_argument(
+        '-V',
+        "--version",
+        dest='version',
+        action='store_true',
+        help="print hostp2pd version and exit")
     parser.add_argument(
         '-v',
         "--verbosity",
@@ -422,6 +432,10 @@ if __name__ == '__main__':
         nargs = 1,
         metavar = 'RUN_PROGRAM')
     args = parser.parse_args()
+
+    if args.version:
+        print(f'hostp2pd version {__version__}.')
+        sys.exit(0)
 
     # Redirect stdout
     if args.batch_mode and args.batch_mode[0].name != '<stdout>':

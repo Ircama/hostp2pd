@@ -11,7 +11,11 @@ from setuptools import setup, find_packages
 from hostp2pd.__version__ import __version__
 
 with open("README.md", "r") as readme:
-    long_description = readme.read()
+    long_description = readme.read() + '''
+
+Full information and usage details at the [hostp2pd GitHub repository](https://github.com/Ircama/hostp2pd).
+
+'''
 
 setup(
     name="hostp2pd",
