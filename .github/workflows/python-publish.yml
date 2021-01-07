@@ -13,7 +13,15 @@ name: Upload hostp2pd Package to PyPI and TestPyPI
 #  release:
 #    types: [created]
 
-on: [push]
+#on: [push]
+
+on:
+   push:
+     tags:
+       - 'v*'
+
+env:
+  resourceId: ${{ github.run_number }}
 
 jobs:
   build-n-publish:
