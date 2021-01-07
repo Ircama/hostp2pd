@@ -3,7 +3,7 @@ hostp2pd
 
 __The Wi-Fi Direct Session Manager__
 
-*hostp2pd* implements a soft host [Access Point](https://en.wikipedia.org/wiki/Wireless_access_point) (AP) user space [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) software in [Wi-Fi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode, enabling a [wireless network interface card](https://en.wikipedia.org/wiki/Wireless_network_interface_controller) to act as *Ad hoc* access point and [Wi-Fi Protected Setup](https://en.wikipedia.org/wiki/Wi-Fi_Protected_Setup) (WPS) [authentication server](https://en.wikipedia.org/wiki/Authentication_server). It features basic functionalities roughly similar to [hostapd](https://en.wikipedia.org/wiki/Hostapd) (with its [hostapd.conf](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) configuration file), which is the widely adopted and higly functional AP software, generally used for [infrastructure mode networking](https://en.wikipedia.org/wiki/Service_set_(802.11_network)#Infrastructure_mode). When implementing a [P2P persistent group](https://praneethwifi.in/2019/11/23/p2p-group-formation-procedure-persistent-method/), [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) offers the [P2P-GO](https://en.wikipedia.org/wiki/Wireless_LAN#Peer-to-peer) features enabled by *hostp2pd* to connect P2P Clients like Android smartphones, as well as provide the standard infrastructure AP mode to the same P2P-GO group, without the need of *hostapd*.
+*hostp2pd* implements a soft host [Access Point](https://en.wikipedia.org/wiki/Wireless_access_point) (AP) software in [Wi-Fi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode, enabling a [wireless network interface card](https://en.wikipedia.org/wiki/Wireless_network_interface_controller) to act as *Ad hoc* access point and [Wi-Fi Protected Setup](https://en.wikipedia.org/wiki/Wi-Fi_Protected_Setup) (WPS) [authentication server](https://en.wikipedia.org/wiki/Authentication_server). It features basic functionalities roughly similar to [hostapd](https://en.wikipedia.org/wiki/Hostapd) (with its [hostapd.conf](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) configuration file), which is the common AP software integrated with *wpa_supplicant*, generally used for [infrastructure mode networking](https://en.wikipedia.org/wiki/Service_set_(802.11_network)#Infrastructure_mode). When implementing a [P2P persistent group](https://praneethwifi.in/2019/11/23/p2p-group-formation-procedure-persistent-method/), [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) offers the [P2P-GO](https://en.wikipedia.org/wiki/Wireless_LAN#Peer-to-peer) features enabled by *hostp2pd* to connect P2P Clients like Android smartphones, as well as provide the standard infrastructure AP mode to the same P2P-GO group, without the need of *hostapd*.
 
 In order to accept [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients, activate a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner) and perform WPS authentication, *hostp2pd* fully relies on *wpa_supplicant*, interfacing it through [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
 
@@ -65,7 +65,7 @@ Check the supported interface modes with this command:
 iw list | grep "Supported interface modes" -A 8
 ```
 
-It should return one line including P2P-GO. If only STA and managed are returned, the device driver of the board (or the hw itself) does not support creating a P2P-GO interface.
+It should return one line including `P2P-GO` (together with `P2P-device`). If only `STA` and `managed` are returned, the device driver of the board (or the hw itself) does not support creating a P2P-GO interface.
 
 As an example, this is the output of the Raspberry Pi 4:
 
@@ -129,14 +129,16 @@ For a reference description of the file format of *wpa_supplicant.conf*, ref. th
 Ensure that *wpa_supplicant.conf* includes the following P2P configuration lines (skip all comments):
 
 ```ini
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev # this allows using wpa_cli as wpa_supplicant client
-update_config=1                                         # this allows wpa_supplicant to update the wpa_supplicant.conf configuration file
-device_name=DIRECT-test                                 # this is the P2P name shown to the Android phones while connecting via Wi-Fi Direct;
-                                                        # use any name in place of "test" and keep the "DIRECT-" prefix.
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev # This allows using wpa_cli as wpa_supplicant client.
+          # Note: /var/run/wpa_supplicant is the directory where wpa_supplicant creates UNIX sockets to allow interaction with wpa_cli. The group name is the
+          # one associated with the sockets; use the appropriated group configured for your wpa_supplicant installation (might not be used).
+update_config=1                                         # This allows wpa_supplicant to update the wpa_supplicant.conf configuration file
+device_name=DIRECT-test                                 # This is the P2P name shown to the Android phones while connecting via Wi-Fi Direct;
+                                                        # Use any name in place of "test" and keep the "DIRECT-" prefix.
 device_type=6-0050F204-1                                # (Network Infrastructure / AP)
-config_methods=keypad                                   # keypad uses a fixed password on UNIX, which is asked from a keypad popped up on the Android devices
-p2p_go_intent=15                                        # force UNIX to become a P2P-GO (Group Owner)
-persistent_reconnect=1                                  # allow reconnecting to a persistent group without user acknowledgement
+config_methods=keypad                                   # "keypad" uses a fixed password on UNIX, which is asked from a keypad popped up on the Android devices
+p2p_go_intent=15                                        # Force UNIX to become a P2P-GO (Group Owner)
+persistent_reconnect=1                                  # Allow reconnecting to a persistent group without user acknowledgement
 p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
 country=<country ID>                                    # Use your country code here
 p2p_device_persistent_mac_addr=<mac address>            # Fixed MAC address overcoming MAC Randomization, to be used with persistent group
@@ -425,6 +427,28 @@ root     20460 20458  0 08:36 ?        S      0:00      \_ wpa_cli -i p2p-wlan0-
 
 [Signals](https://docs.python.org/3/library/signal.html) are configured among processes, so that termination is synced. Core sends SIGHUP to Enroller if a configuration needs to be reloaded.
 
+## Interfacing wpa_supplicant
+
+Currently, there seem to be two possibilities to interface *wpa_supplicant* on P2P (Wi-Fi Direct) sessions: using the UNIX sockets (like *wpa_cli* does) or by directly screenscraping the *wpa_cli* client via bidirectional pipe.
+
+*wpa_supplicant* also allows the [dbus interface](https://w1.fi/wpa_supplicant/devel/dbus.html) when *wpa_supplicant* is run with the `-u` option; anyway, with the current *wpa_supplicant* version (v2.8-devel), the internal P2P objects do not seem to be registered to the *dbus* interface, so a Python request like the following one fails with message `dbus.exceptions.DBusException: fi.w1.wpa_supplicant1.InterfaceUnknown: wpa_supplicant knows nothing about this interface..`:
+
+```python
+python3 -c 'import dbus;\
+dbus.Interface(dbus.SystemBus().get_object("fi.w1.wpa_supplicant1",\
+"/fi/w1/wpa_supplicant1"), "fi.w1.wpa_supplicant1")\
+.GetInterface("p2p-dev-wlan0")'
+```
+
+This is because *wpa_supplicant* does not expose *p2p-dev-wlan0* to *dbus*. It means that [the old Python test examples](http://w1.fi/cgit/hostap/tree/wpa_supplicant/examples/p2p) included in *wpa_supplicant* sources, which exploited *dbus*, are not usable. Notice also that if *p2p-dev-wlan0* in the above Python command is changed to *wlan0* (which is unrelated to P2P anyway), the command returns with no errors.
+
+*hostp2pd* relises on *wpa_cli* considering that:
+
+- it is natively integrated with *wpa_supplicant* via proven and roboust communication method,
+- it allows easy P2P commands and in parallel it outputs all needed real time events,
+- the consumed UNIX resources are very limited,
+- the resulting Python program is very simple to maintain.
+
 # Wi-Fi Direct configuration on a Raspberry Pi
 
 To configure Wi-Fi Direct on a Raspberry Pi, follow [this link](https://raspberrypi.stackexchange.com/q/117238/126729).
@@ -437,7 +461,7 @@ Linux and Android devices use by default randomized MAC addresses when probing f
 
 MAC randomization prevents listeners from using MAC addresses to build a history of device activity, thus increasing user privacy.
 
-Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart. This appears to be appropriately managed by Android devices.
+Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart. [This appears to be appropriately managed by Android devices](https://source.android.com/devices/tech/connect/wifi-direct#mac_randomization).
 
 Nevertheless, on some UNIX devices (e.g., with Raspberry Pi OS., based on Debian Buster) reinvoking a persistent group after restarting wpa_supplicant will change the local MAC address of the related virtual interface, breaking the reuse of the saved group in the peer system.
 
