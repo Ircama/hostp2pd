@@ -8,6 +8,7 @@
 #########################################################################
 
 from setuptools import setup, find_packages
+import re
 
 with open("README.md", "r") as readme:
     long_description = readme.read()
