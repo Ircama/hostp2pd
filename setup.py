@@ -23,7 +23,7 @@ setup(
         "Operating System :: POSIX :: Linux",
         "License :: Other/Proprietary License",
         "Topic :: Communications",
-        "Topic :: Software Development :: Libraries :: Python Modules"
+        "Topic :: Software Development :: Libraries :: Python Modules",
         'Programming Language :: Python :: 3 :: Only',
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: System Administrators",
