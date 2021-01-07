@@ -20,9 +20,6 @@ on:
      tags:
        - 'v*'
 
-env:
-  resourceId: ${{ github.run_number }}
-
 jobs:
   build-n-publish:
     name: Build and publish Python to PyPI and TestPyPI
@@ -54,20 +51,26 @@ jobs:
         --user
     - name: Build a binary wheel and a source tarball
       run: >-
-        python -m
-        build
-        --sdist
-        --wheel
-        --outdir dist/
-        .
+        python setup.py sdist bdist_wheel
     # This will create the /dist directory including the package build.
+
+    - name: Adding build numbers
+      run: >-
+        echo Before:;
+        ls -l dist;
+        for i in dist/*;
+        do j=$(echo ${i}|sed -e 's/^\([^-]*-\)\([0-9]*.[0-9]*.[0-9]*\)/\1\2-${{ github.run_number }}/');
+        echo Moving "%i" to "$j";
+        mv "%i" "$j";
+        done;
+        echo After (using build number ${{ github.run_number }}):;
+        ls -l dist
 
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        python setup.py sdist bdist_wheel
         twine upload  --repository pypi dist/*
         twine upload  --repository testpypi dist/*
     # This will publish the /dist directory.
