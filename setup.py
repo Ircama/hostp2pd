@@ -41,6 +41,9 @@ setup(
     url="https://github.com/Ircama/hostp2pd",
     license='CC-BY-NC-SA-4.0',
     packages=find_packages(),
+    entry_points={'console_scripts': [
+        'hostp2pd = hostp2pd:main',
+    ]},
     include_package_data=True,
     zip_safe=False,
     install_requires=[

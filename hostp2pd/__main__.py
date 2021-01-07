@@ -47,11 +47,12 @@ class Interpreter(Cmd):
     histfile_size = 1000
 
     def __init__(self, hostp2pd, args):
+        self.args = args
         self.hostp2pd = hostp2pd
         self.prompt_active = True
         self.color_active = True
         self.__set_ps_string('CMD')
-        if args.batch_mode:
+        if self.args.batch_mode:
             self.prompt_active = False
             self.color_active = False
             Cmd.prompt = ''
@@ -72,7 +73,7 @@ class Interpreter(Cmd):
     def print_topics(self, header, cmds, cmdlen, maxcol):
         if not cmds:
             return
-        if args.batch_mode:
+        if self.args.batch_mode:
             return
         self.stdout.write(
         "Available commands include the following list (type help <topic>"
@@ -89,7 +90,7 @@ class Interpreter(Cmd):
     def do_EOF(self, arg):
         'Quit hostp2pd'
         print("Terminating...")
-        if args.batch_mode:
+        if self.args.batch_mode:
             while threading.active_count() == 2:
                 time.sleep(0.5)
         sys.exit(0)
@@ -321,17 +322,17 @@ class Interpreter(Cmd):
                 ] + rl + [self.rlc(text, x) for x in range(400) if self.rlc(text, x)]
 
     def preloop(self):
-        if readline and os.path.exists(self.histfile) and not args.batch_mode:
+        if readline and os.path.exists(self.histfile) and not self.args.batch_mode:
             try:
                 readline.read_history_file(self.histfile)
             except FileNotFoundError:
                 pass
 
     def postloop(self):
-        if readline and not args.batch_mode:
+        if readline and not self.args.batch_mode:
             readline.set_history_length(self.histfile_size)
             readline.write_history_file(self.histfile)
-        if self.color_active and not args.batch_mode:
+        if self.color_active and not self.args.batch_mode:
             sys.stdout.write("\033[00m")
             sys.stdout.flush()
 
@@ -356,7 +357,7 @@ class Interpreter(Cmd):
                 sys.exit(0)
 
 
-if __name__ == '__main__':
+def main():
     # Option handling
     parser = argparse.ArgumentParser(
         epilog=f'hostp2pd v.{__version__} - The Wi-Fi Direct '
@@ -578,3 +579,8 @@ if __name__ == '__main__':
                 w_p2p_interpreter.postloop()
             print('\nExiting.\n')
         sys.exit(1)
+
+# ------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    main()
