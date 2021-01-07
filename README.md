@@ -47,16 +47,22 @@ To run *hostp2pd* in interactive mode, use the following command:
 python3 -m hostp2pd
 ```
 
+or simply:
+
+```shell
+hostp2pd
+```
+
 Using a P2P-Device interface and a configuration file:
 
 ```shell
-python3 -m hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
+hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
 ```
 
 - `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the physical interface *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
 - `-c` option: a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file ([here](hostp2pd.yaml) an example) is not strictly necessary to start a first test; a minimum parameter would be the password, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
   ```shell
-  python3 -m hostp2pd -i p2p-dev-wlan0 -c - <<\eof
+  hostp2pd -i p2p-dev-wlan0 -c - <<\eof
   password: "00000000"
   eof
   ```
@@ -329,10 +335,10 @@ To browse the log files, [lnav](https://github.com/tstack/lnav) is suggested.
 
 # Command-line arguments
 
-Output of `python3 -m hostp2pd -h`:
+Output of `hostp2pd -h`:
 
 ```
-usage: python3 -m hostp2pd [-h] [-V] [-v] [-vv] [-t] [-r] [-c CONFIG_FILE]
+usage: hostp2pd [-h] [-V] [-v] [-vv] [-t] [-r] [-c CONFIG_FILE]
                            [-d] [-b FILE] [-i INTERFACE] [-p RUN_PROGRAM]
 
 optional arguments:
@@ -368,7 +374,7 @@ When running as a daemon, standard and error outputs are closed, but log file is
 All arguments are optional.
 
 ```python
-from hostp2pd.hostp2pd import HostP2pD
+from hostp2pd import HostP2pD
 
 hostp2pd = HostP2pD(
     config_file="config_file",  # optional pathname of the hostp2pd.yaml configuration file
@@ -379,15 +385,18 @@ hostp2pd = HostP2pD(
     password="00000000")        # optional PIN of keypad enrolment
 ```
 
-Check [`__main__.py`](hostp2pd/__main__.py) for usage examples of the three allowed invocation methods: interactive, batch and daemon modes.
+Check [`__init__.py`](hostp2pd/__init__.py) for usage examples of the three allowed invocation methods: interactive, batch and daemon modes.
 
 ## Interactive mode
 
 Interactive mode uses the Context Manager:
 
 ```python
+import time
+
 with hostp2pd as session:
     # do interactive monitoring while the process run
+    time.sleep(40) # example
 ```
 
 ## Batch/daemon mode

@@ -590,31 +590,49 @@ pbc_white_list: <class 'list'>
                     continue # skip carriage returns
 
                 buffer += c
+        except TypeError as e:
+            if self.master_fd == None:
+                logging.debug("Process interrupted.")
+            else:
+                logging.critical("PANIC - Internal TypeError in read_wpa(): %s", e,
+                    exc_info=True)
+            return None # error
         except OSError as e:
             if e.errno == errno.EBADF or e.errno == errno.EIO: # [Errno 9] Bad file descriptor/[Errno 5] Input/output error
                 logging.debug("Read interrupted.")
             else:
-                logging.critical("PANIC - Internal error in read_wpa(): %s", e, exc_info=True)
+                logging.critical("PANIC - Internal OSError in read_wpa(): %s", e,
+                    exc_info=True)
             return None # error
         except Exception as e:
             if  self.terminate_is_active:
                 logging.debug("Read interrupted: %s", e)
                 return None # error
-            logging.critical("PANIC - Internal error in read_wpa(): %s", e, exc_info=True)
+            logging.critical("PANIC - Internal error in read_wpa(): %s", e,
+                exc_info=True)
 
         return buffer
 
 
     def write_wpa(self, resp):
         """ write to wpa_cli """
-        logging.debug("(enroller) Write: %s" if self.is_enroller else "Write: %s", repr(resp))
+        logging.debug("(enroller) Write: %s" if self.is_enroller else "Write: %s",
+            repr(resp))
         resp += '\n'
         try:
             return os.write(self.master_fd, resp.encode())
+        except TypeError as e:
+            if self.master_fd == None:
+                logging.debug("Process interrupted.")
+            else:
+                logging.critical("PANIC - Internal TypeError in write_wpa(): %s",
+                    e, exc_info=True)
+            return None # error
         except Exception as e:
             if not self.terminate_is_active:
-                logging.critical("PANIC - Internal error in write_wpa(): %s", e, exc_info=True)
-            return None
+                logging.critical("PANIC - Internal error in write_wpa(): %s", e,
+                    exc_info=True)
+            return None # error
 
     def rotate_config_method(self):
         if self.pbc_in_use:
