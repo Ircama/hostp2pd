@@ -21,7 +21,7 @@ setup(
     long_description_content_type="text/markdown",
     classifiers=[
         "Operating System :: POSIX :: Linux",
-        "License :: Creative Commons Creative Commons Attribution Non Commercial Share Alike 4.0 International (CC-BY-NC-SA-4.0)"
+        "License :: Other/Proprietary License",
         "Topic :: Communications",
         "Topic :: Software Development :: Libraries :: Python Modules"
         'Programming Language :: Python :: 3 :: Only',
