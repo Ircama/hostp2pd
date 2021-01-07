@@ -30,7 +30,7 @@ jobs:
 
     # Checking out the project and building distributions
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v2
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
