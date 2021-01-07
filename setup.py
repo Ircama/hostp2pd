@@ -7,8 +7,8 @@
 # (C) Ircama 2021 - CC-BY-NC-SA-4.0
 #########################################################################
 
+import re
 from setuptools import setup, find_packages
-from hostp2pd.__version__ import __version__
 
 with open("README.md", "r") as readme:
     long_description = readme.read()
@@ -19,9 +19,19 @@ Full information and usage details at the [hostp2pd GitHub repository](https://g
 
 '''
 
+PROGRAM_NAME = "hostp2pd"
+VERSIONFILE = PROGRAM_NAME + "/__version__.py"
+verstrline = open(VERSIONFILE, "rt").read()
+VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+mo = re.search(VSRE, verstrline, re.M)
+if mo:
+    verstr = mo.group(1)
+else:
+    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
+
 setup(
-    name="hostp2pd",
-    version=__version__,
+    name=PROGRAM_NAME,
+    version=verstr,
     description=("Wi-Fi Direct Session Manager, implementing a host AP daemon in Wi-Fi Direct mode, including P2P WPS enrollment"),
     long_description=long_description[:long_description.find('# Connecting')] + epilogue,
     long_description_content_type="text/markdown",
