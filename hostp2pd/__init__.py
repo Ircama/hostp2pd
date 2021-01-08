@@ -44,6 +44,7 @@ class Interpreter(Cmd):
     __hiden_methods = ('do_EOF',)
     rlc = rlcompleter.Completer().complete
     histfile = os.path.expanduser('~/.hostp2pd_mgr_history')
+    host_lib = 'hostp2pd' # must be declared in default(), completedefault(), completenames()
     histfile_size = 1000
 
     def __init__(self, hostp2pd, args):
@@ -306,6 +307,7 @@ class Interpreter(Cmd):
     # completedefault and completenames manage autocompletion of Python
     # identifiers and namespaces
     def completedefault(self, text, line, begidx, endidx):
+        hostp2pd = self.hostp2pd # ref. host_lib
         rld = '.'.join(text.split('.')[:-1])
         rlb = text.split('.')[-1]
         if (begidx > 0 and line[begidx-1] in ')]}' and
@@ -322,12 +324,15 @@ class Interpreter(Cmd):
             ]
         else:
             rl = ['self'] if rlb != '' and 'self'.startswith(rlb) else []
+            if self.host_lib.startswith(text):
+                rl += [self.host_lib]
         return rl + [self.rlc(text, x) for x in range(400) if self.rlc(text, x)]
 
     def get_names(self):
         return [n for n in dir(self.__class__) if n not in self.__hiden_methods]
 
     def completenames(self, text, *ignored):
+        hostp2pd = self.hostp2pd # ref. host_lib
         dotext = 'do_'+text
         rld = '.'.join(text.split('.')[:-1])
         rlb = text.split('.')[-1]
@@ -338,6 +343,8 @@ class Interpreter(Cmd):
             ]
         else:
             rl = ['self'] if rlb != '' and 'self'.startswith(rlb) else []
+            if self.host_lib.startswith(text):
+                rl += [self.host_lib]
         if not text:
             return [a[3:] for a in self.get_names() if a.startswith(dotext)]
         return [a[3:] for a in self.get_names() if a.startswith(dotext)
@@ -360,6 +367,7 @@ class Interpreter(Cmd):
 
     # Execution of unrecognized commands
     def default(self, arg):
+        hostp2pd = self.hostp2pd # ref. host_lib
         try:
             print ( eval(arg) )
         except Exception:
