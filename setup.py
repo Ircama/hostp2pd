@@ -16,13 +16,8 @@ import sys
 from urllib import request
 from pkg_resources import parse_version
 
-def versions_pypi(pkg_name):
-    url = f'https://pypi.python.org/pypi/{pkg_name}/json'
-    releases = json.loads(request.urlopen(url).read())['releases']
-    return sorted(releases, key=parse_version, reverse=True)
-
-def versions_testpypi(pkg_name):
-    url = f'https://testpypi.python.org/pypi/{pkg_name}/json'
+def versions(pkg_name, site):
+    url = 'https://' + site + f'.python.org/pypi/{pkg_name}/json'
     releases = json.loads(request.urlopen(url).read())['releases']
     return sorted(releases, key=parse_version, reverse=True)
 
@@ -49,9 +44,9 @@ else:
 
 if os.environ.get('GITHUB_RUN_NUMBER') is not None:
     version_list_pypi = [
-        a for a in versions_pypi(PROGRAM_NAME) if a.startswith(verstr)]
+        a for a in versions(PROGRAM_NAME, 'pypi') if a.startswith(verstr)]
     version_list_testpypi = [
-        a for a in versions_testpypi(PROGRAM_NAME) if a.startswith(verstr)]
+        a for a in versions(PROGRAM_NAME, 'testpypi') if a.startswith(verstr)]
     if version_list_pypi or version_list_testpypi:
         print("-------------------------------------------------------------------------")
         print(f"Using build number {os.environ['GITHUB_RUN_NUMBER']}")
