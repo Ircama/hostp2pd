@@ -2,6 +2,8 @@
 
 Only tags are used by now (not releases).
 
+Do not remove '# Connecting' in README.md.
+
 # Tagging a release
 
 If a version needs to be changed, edit `hostp2pd/__version__.py`.

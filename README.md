@@ -196,8 +196,7 @@ Check the [hostp2pd.yaml example file](hostp2pd.yaml). It is suggested to instal
 Run the following to install the service:
 
 ```ini
-sudo -Es
-SYSTEMD_EDITOR=tee systemctl edit --force --full hostp2pd <<\EOF
+sudo SYSTEMD_EDITOR=tee systemctl edit --force --full hostp2pd <<\EOF
 [Unit]
 Description=hostp2pd - The Wi-Fi Direct Session Manager
 After=network.target
@@ -214,10 +213,11 @@ PIDFile=/var/run/hostp2pd-p2p-dev-wlan0.pid
 WantedBy=multi-user.target
 EOF
 
-systemctl enable hostp2pd
-systemctl start hostp2pd
-exit
+sudo systemctl enable hostp2pd
+sudo systemctl start hostp2pd
 ```
+
+Note: `PIDFile` variable cannot be parametrized with `${CONF}` and `${P2PDEVICE}`.
 
 # WPS Authorization methods
 
