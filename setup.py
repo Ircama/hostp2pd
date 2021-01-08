@@ -11,6 +11,21 @@ from setuptools import setup, find_packages
 import re
 import os
 
+import json
+import sys
+from urllib import request
+from pkg_resources import parse_version
+
+def versions_pypi(pkg_name):
+    url = f'https://pypi.python.org/pypi/{pkg_name}/json'
+    releases = json.loads(request.urlopen(url).read())['releases']
+    return sorted(releases, key=parse_version, reverse=True)
+
+def versions_testpypi(pkg_name):
+    url = f'https://testpypi.python.org/pypi/{pkg_name}/json'
+    releases = json.loads(request.urlopen(url).read())['releases']
+    return sorted(releases, key=parse_version, reverse=True)
+
 with open("README.md", "r") as readme:
     long_description = readme.read()
 
@@ -24,19 +39,28 @@ PROGRAM_NAME = "hostp2pd"
 VERSIONFILE = PROGRAM_NAME + "/__version__.py"
 
 build = ''
-if os.environ.get('GITHUB_RUN_NUMBER') is not None:
-    print("------------------------------")
-    print("Using build number", os.environ['GITHUB_RUN_NUMBER'])
-    print("------------------------------")
-    build = '-' + os.environ['GITHUB_RUN_NUMBER']
-
 verstrline = open(VERSIONFILE, "rt").read()
 VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
 mo = re.search(VSRE, verstrline, re.M)
 if mo:
-    verstr = mo.group(1) + build
+    verstr = mo.group(1)
 else:
     raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
+
+if os.environ.get('GITHUB_RUN_NUMBER') is not None:
+    version_list_pypi = [
+        a for a in versions_pypi(PROGRAM_NAME) if a.startswith(verstr)]
+    version_list_testpypi = [
+        a for a in versions_testpypi(PROGRAM_NAME) if a.startswith(verstr)]
+    if version_list_pypi or version_list_testpypi:
+        print("-------------------------------------------------------------------------")
+        print(f"Using build number {os.environ['GITHUB_RUN_NUMBER']}")
+        if version_list_pypi:
+            print(f"Version list available in pypi {version_list_pypi}")
+        if version_list_testpypi:
+            print(f"Version list available in testpypi {version_list_testpypi}")
+        print("-------------------------------------------------------------------------")
+        verstr += '-' + os.environ['GITHUB_RUN_NUMBER']
 
 setup(
     name=PROGRAM_NAME,

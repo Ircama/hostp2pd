@@ -95,9 +95,6 @@ class Interpreter(Cmd):
                 time.sleep(0.5)
         sys.exit(0)
 
-    def get_names(self):
-        return [n for n in dir(self.__class__) if n not in self.__hiden_methods]
-
     def do_quit(self, arg):
         "Quit hostp2pd. Also Control-D or interrupt \n"\
         "(Control-C) can be used."
@@ -190,7 +187,8 @@ class Interpreter(Cmd):
                     do_activation=True):
                 print("Reloaded configuration file", self.hostp2pd.config_file)
             else:
-                print("Errors while reloading configuration from file", self.hostp2pd.config_file)
+                print("Errors while reloading configuration from file",
+                    self.hostp2pd.config_file)
                 self.hostp2pd.config_file = conf_file
 
     def do_stats(self, arg):
@@ -212,30 +210,50 @@ class Interpreter(Cmd):
         else:
             print("No statistics available.")
         print("Internal parameters:")
-        print(format_string.format("Configuration file", self.hostp2pd.config_file))
-        print(format_string.format("Interface name", self.hostp2pd.interface))
-        print(format_string.format("SSID persistent/autonomous group", self.hostp2pd.ssid_group))
-        print(format_string.format("Active group", self.hostp2pd.monitor_group))
-        print(format_string.format("Group formation technique", self.hostp2pd.group_type))
-        print(format_string.format("Persistent group number (net id)", self.hostp2pd.persistent_network_id))
-        print(format_string.format("Activation/deactivation program", self.hostp2pd.run_program))
-        print(format_string.format("Deactivation program was run", self.hostp2pd.run_prog_stopped))
-        print(format_string.format("Thread backend state", self.hostp2pd.THREAD.state[self.hostp2pd.threadState]))
-        print(format_string.format("Pbc is in use", self.hostp2pd.pbc_in_use))
-        print(format_string.format("Configuration method in use", self.hostp2pd.config_method_in_use))
-        print(format_string.format("p2p_connect_time", self.hostp2pd.p2p_connect_time))
-        print(format_string.format("find_timing_level", self.hostp2pd.find_timing_level))
-        print(format_string.format("Logging level", self.hostp2pd.logger.level))
-        print(format_string.format("Number of failures", self.hostp2pd.num_failures))
-        print(format_string.format("Stored station name", self.hostp2pd.station))
-        print(format_string.format("wpa_supplicant errors", self.hostp2pd.wpa_supplicant_errors))
-        print(format_string.format("Number of scan pollings", self.hostp2pd.scan_polling))
+        print(format_string.format("Configuration file",
+            self.hostp2pd.config_file))
+        print(format_string.format("Interface name",
+            self.hostp2pd.interface))
+        print(format_string.format("SSID persistent/autonomous group",
+            self.hostp2pd.ssid_group))
+        print(format_string.format("Active group",
+            self.hostp2pd.monitor_group))
+        print(format_string.format("Group formation technique",
+            self.hostp2pd.group_type))
+        print(format_string.format("Persistent group number (net id)",
+            self.hostp2pd.persistent_network_id))
+        print(format_string.format("Activation/deactivation program",
+            self.hostp2pd.run_program))
+        print(format_string.format("Deactivation program was run",
+            self.hostp2pd.run_prog_stopped))
+        print(format_string.format("Thread backend state",
+            self.hostp2pd.THREAD.state[self.hostp2pd.threadState]))
+        print(format_string.format("Pbc is in use",
+            self.hostp2pd.pbc_in_use))
+        print(format_string.format("Configuration method in use",
+            self.hostp2pd.config_method_in_use))
+        print(format_string.format("p2p_connect_time",
+            self.hostp2pd.p2p_connect_time))
+        print(format_string.format("find_timing_level",
+            self.hostp2pd.find_timing_level))
+        print(format_string.format("Logging level",
+            self.hostp2pd.logger.level))
+        print(format_string.format("Number of failures",
+            self.hostp2pd.num_failures))
+        print(format_string.format("Stored station name",
+            self.hostp2pd.station))
+        print(format_string.format("wpa_supplicant errors",
+            self.hostp2pd.wpa_supplicant_errors))
+        print(format_string.format("Number of scan pollings",
+            self.hostp2pd.scan_polling))
         try:
-            print(format_string.format("wpa_cli process Pid", self.hostp2pd.process.pid))
+            print(format_string.format("wpa_cli process Pid",
+                self.hostp2pd.process.pid))
         except:
             print("  Error: wpa_cli process ID not existing!")
         try:
-            print(format_string.format("Enroller wpa_cli process Pid", self.hostp2pd.enroller.pid))
+            print(format_string.format("Enroller wpa_cli process Pid",
+                self.hostp2pd.enroller.pid))
         except:
             print("  Enroller wpa_cli process ID is not existing.")
         
@@ -288,9 +306,10 @@ class Interpreter(Cmd):
     # completedefault and completenames manage autocompletion of Python
     # identifiers and namespaces
     def completedefault(self, text, line, begidx, endidx):
-        rld='.'.join(text.split('.')[:-1])
-        rlb=text.split('.')[-1]
-        if begidx > 0 and line[begidx-1] in ')]}' and line[begidx] == '.' and self.is_matched(line):
+        rld = '.'.join(text.split('.')[:-1])
+        rlb = text.split('.')[-1]
+        if (begidx > 0 and line[begidx-1] in ')]}' and
+                line[begidx] == '.' and self.is_matched(line)):
             rlds = line.rstrip('.' + rlb)
             rl = [ rld + '.' + x for x in dir(eval(rlds))
                 if x.startswith(rlb) and not x.startswith('__')
@@ -305,10 +324,13 @@ class Interpreter(Cmd):
             rl = ['self'] if rlb != '' and 'self'.startswith(rlb) else []
         return rl + [self.rlc(text, x) for x in range(400) if self.rlc(text, x)]
 
+    def get_names(self):
+        return [n for n in dir(self.__class__) if n not in self.__hiden_methods]
+
     def completenames(self, text, *ignored):
         dotext = 'do_'+text
-        rld='.'.join(text.split('.')[:-1])
-        rlb=text.split('.')[-1]
+        rld = '.'.join(text.split('.')[:-1])
+        rlb = text.split('.')[-1]
         if rld:
             rl = [
                 rld + '.' + x for x in dir(eval(rld))
@@ -566,7 +588,8 @@ def main():
                     os._exit(1) # does not raise SystemExit
                 while hostp2pd.threadState == hostp2pd.THREAD.STARTING:
                     time.sleep(0.1)
-                logging.info(f'\n\nhostp2pd (v{__version__}) started in interactive mode.\n')
+                logging.info(
+                    f'\n\nhostp2pd (v{__version__}) started in interactive mode.\n')
                 sys.stdout.flush()
                 w_p2p_interpreter = Interpreter(hostp2pd, args)
                 w_p2p_interpreter.cmdloop_with_keyboard_interrupt(

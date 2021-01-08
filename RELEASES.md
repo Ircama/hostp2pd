@@ -92,7 +92,7 @@ python3 setup.py sdist bdist_wheel
 python3 -m twine upload --repository testpypi dist/*
 ```
 
-## Local build using build versions):
+## Local build (using build versions):
 
 ```shell
 GITHUB_RUN_NUMBER=31 python3 setup.py sdist bdist_wheel
