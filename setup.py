@@ -20,15 +20,16 @@ Full information and usage details at the [hostp2pd GitHub repository](https://g
 
 '''
 
-build = ''
-if os.environ.get('GITHUB_RUN_NUMBER') is not None:
-    print("---------------------------------------------------------------------------------")
-    print("Using build number", os.environ['GITHUB_RUN_NUMBER'])
-    print("---------------------------------------------------------------------------------")
-    build = '-' + os.environ['GITHUB_RUN_NUMBER']
-
 PROGRAM_NAME = "hostp2pd"
 VERSIONFILE = PROGRAM_NAME + "/__version__.py"
+
+build = ''
+if os.environ.get('GITHUB_RUN_NUMBER') is not None:
+    print("------------------------------")
+    print("Using build number", os.environ['GITHUB_RUN_NUMBER'])
+    print("------------------------------")
+    build = '-' + os.environ['GITHUB_RUN_NUMBER']
+
 verstrline = open(VERSIONFILE, "rt").read()
 VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
 mo = re.search(VSRE, verstrline, re.M)
