@@ -56,6 +56,7 @@ Test installation:
 
 ```shell
 cd
+python3 -m pip uninstall -y hostp2pd
 python3 -m pip install hostp2pd
 hostp2pd
 python3 -m pip uninstall -y hostp2pd
@@ -65,8 +66,8 @@ python3 -m pip uninstall -y hostp2pd
 
 ```shell
 git tag # list tags
-git tag -d v0.1.4 # remove local tag
-git push --delete origin v0.1.4 # remove remote tag
+git tag -d v0.1.5 # remove local tag
+git push --delete origin v0.1.5 # remove remote tag
 git ls-remote --tags https://github.com/Ircama/hostp2pd # list remote tags
 ```
 
