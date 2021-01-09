@@ -25,7 +25,7 @@ try:
     import daemon
     import daemon.pidfile
     from lockfile.pidlockfile import PIDLockFile
-    from lockfile import AlreadyLocked, NotLocked
+    from lockfile import AlreadyLocked, NotLocked, LockFailed
     from .__version__ import __version__
     try:
         import readline
@@ -35,7 +35,9 @@ except ImportError as detail:
     print("hostp2pd error:\n " + str(detail))
     sys.exit(1)
 
-DAEMON_PIDFILE_BASE = '/var/run/hostp2pd-'
+DAEMON_PIDFILE_DIR_ROOT = '/var/run/'
+DAEMON_PIDFILE_DIR_NON_ROOT = '/tmp/'
+DAEMON_PIDFILE_BASE = 'hostp2pd-'
 DAEMON_UMASK = 0o002
 DAEMON_DIR = '/tmp'
 
@@ -492,7 +494,12 @@ def main():
         args.run_program[0],
         force_logging)
 
-    daemon_pid_fname = DAEMON_PIDFILE_BASE + args.interface[0] + ".pid"
+    if os.getuid() == 0:
+        daemon_pid_fname = (DAEMON_PIDFILE_DIR_ROOT +
+            DAEMON_PIDFILE_BASE + args.interface[0] + ".pid")
+    else:
+        daemon_pid_fname = (DAEMON_PIDFILE_DIR_NON_ROOT +
+            DAEMON_PIDFILE_BASE + args.interface[0] + ".pid")
     pidfile = daemon.pidfile.PIDLockFile(daemon_pid_fname)
     pid = pidfile.read_pid()
 
@@ -564,10 +571,14 @@ def main():
                     )
                 }
             )
-        with context:
-            print('hostp2pd daemon service STARTED')
-            hostp2pd.run()
-            print("\nhostp2pd daemon service ENDED")
+        try:
+            with context:
+                print('hostp2pd daemon service STARTED')
+                hostp2pd.run()
+                print("\nhostp2pd daemon service ENDED")
+        except LockFailed as e:
+            print('Internal error: cannot start daemon', e)
+            sys.exit(1)
         sys.exit(0)
 
     if pid:
@@ -609,4 +620,4 @@ def main():
             if w_p2p_interpreter:
                 w_p2p_interpreter.postloop()
             print('\nExiting.\n')
-        sys.exit(1)
+            sys.exit(1)

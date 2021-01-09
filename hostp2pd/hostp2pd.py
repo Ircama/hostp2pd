@@ -152,6 +152,9 @@ pbc_white_list: <class 'list'>
             self.config_file = configuration_file
         else:
             self.config_file = Path(__file__).stem + '.yaml'
+        if not os.path.exists(self.config_file):
+            self.config_file = os.path.join(
+                os.path.dirname(Path(__file__)), 'hostp2pd.yaml')
         value = os.getenv(env_key, None)
         if value:
             self.config_file = value
@@ -392,13 +395,13 @@ pbc_white_list: <class 'list'>
         logging.debug("Start termination procedure.")
         self.terminate_enrol()
         if self.thread and self.threadState != self.THREAD.STOPPED:
-            self.threadState = self.THREAD.STOPPED
             time.sleep(0.1)
             try:
                 self.thread.join(1)
             except:
                 logging.debug("Cannot join current thread.")
             self.thread = None
+        self.threadState = self.THREAD.STOPPED
         try:
             if self.slave_fd:
                 os.close(self.slave_fd)
