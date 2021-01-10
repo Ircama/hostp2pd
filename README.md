@@ -181,11 +181,22 @@ See below for the usage of `p2p_device_persistent_mac_addr`; some nl80211 device
 
 The following usage modes of *hostp2pd* are allowed:
 
-- interactive mode (with no option, by default *hostp2pd* starts in this mode and a prompt is shown)
-- batch mode (use `-b` option; e.g., `-b -` for standard log output, or `-b output_file_name`)
+- interactive mode (when neither `-b` option nor `-d` is used, by default *hostp2pd* starts in this mode and a prompt is shown)
+- batch mode with input commands, activated with the `-b` option (`-b file` or `-b -`; e.g., `-b -` for standard log output, or `-b output_file_name`). This mode reads the standard input for the same commands that can be issued by the user in interactive mode;
+- batch mode light, without input commands (no separate thread is created and the command interpreter is not used). This is activated when both `-b` and `-d` options are used;
 - daemon mode (use `-d` option). Suggested configuration. If a daemon process is active, option `-t` terminates a running daemon and option `-r` dynamically reloads the configuration of a running program.
 
 When running as a daemon, *hostp2pd* prevents multiple instances over the same P2P-Device interface by using lock files with name `/var/run/hostp2pd-<interface>.pid`, where `<interface>` is the name of the P2P-Device interface. (For instance, */var/run/hostp2pd-p2p-dev-wlan0.pid*.)
+
+Example of execution in batch mode with input commands (where also Python instructions can be used):
+
+```shell
+hostp2pd -c /etc/hostp2pd.yaml -b - <<\eof
+stats
+wait 60
+stats
+eof
+```
 
 ## hostp2pd.yaml
 
@@ -426,7 +437,7 @@ hostp2pd.read_configuration(
 
 When using the Context Manager, a thread is started: the current context, named "Main", is returned to the user. The created thread, named "Core", runs the *hostp2pd* engine in background.
 
-With batch/daemon mode, the "Core" does not run in a background thread.
+With batch (selecting the option not to send input commands) and daemon modes, the "Core" does not run in a background thread.
 
 The "Core" engine starts *wpa_cli* as [subprocess](https://docs.python.org/3/library/subprocess.html) connected to the P2P-Device, bidirectionally interfacing it via [pty](https://docs.python.org/3/library/pty.html), using no-echo mode. The internal "read" function gets one character a time mediated by a [select](https://docs.python.org/3/library/select.html) method which controls read timeout that is used to perform a number of periodic checks.
 

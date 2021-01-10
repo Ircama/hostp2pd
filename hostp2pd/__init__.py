@@ -92,10 +92,12 @@ class Interpreter(Cmd):
 
     def do_EOF(self, arg):
         'Quit hostp2pd'
-        print("Terminating...")
         if self.args.batch_mode:
+            print("End of batch commands.")
             while threading.active_count() == 2:
                 time.sleep(0.5)
+        else:
+            print("Terminating...")
         sys.exit(0)
 
     def do_quit(self, arg):
@@ -471,7 +473,7 @@ def main():
         sys.exit(0)
 
     # Redirect stdout
-    if args.batch_mode and args.batch_mode[0].name != '<stdout>':
+    if args.batch_mode and not args.batch_mode[0].isatty():
         sys.stdout = args.batch_mode[0]
 
     # Configuration file
@@ -537,7 +539,7 @@ def main():
             print('Cannot reload the configuration of the daemon process: not running.')
             sys.exit(0)
 
-    if args.daemon_mode:
+    if args.daemon_mode and not args.batch_mode:
         if pid:
             try:
                 pidfile.acquire()
@@ -584,7 +586,7 @@ def main():
     if pid:
         print(f'Warning: lockfile "{daemon_pid_fname}" reports pid {pid}.')
 
-    if args.batch_mode:
+    if args.batch_mode and args.daemon_mode:
         print('hostp2pd service STARTED')
         signal.signal(
             signal.SIGHUP, lambda signum, frame: hostp2pd.read_configuration(
@@ -607,17 +609,25 @@ def main():
                     os._exit(1) # does not raise SystemExit
                 while hostp2pd.threadState == hostp2pd.THREAD.STARTING:
                     time.sleep(0.1)
-                logging.info(
-                    f'\n\nhostp2pd (v{__version__}) started in interactive mode.\n')
+                if not args.batch_mode:
+                    logging.info(
+                        f'\n\nhostp2pd (v{__version__}) started in interactive mode.\n')
                 sys.stdout.flush()
                 w_p2p_interpreter = Interpreter(hostp2pd, args)
-                w_p2p_interpreter.cmdloop_with_keyboard_interrupt(
-                    'Welcome to hostp2pd - The Wi-Fi Direct Session Manager.\n'
-                    'https://github.com/Ircama/hostp2pd\n'
-                    'hostp2pd is running in interactive mode.\n'
-                    'Type help or ? to list commands.\n')
+                if args.batch_mode:
+                    w_p2p_interpreter.cmdloop_with_keyboard_interrupt(
+                        'hostp2pd batch mode STARTED\n'
+                        'Begin batch commands.')
+                else:
+                    w_p2p_interpreter.cmdloop_with_keyboard_interrupt(
+                        'Welcome to hostp2pd - The Wi-Fi Direct Session Manager.\n'
+                        'https://github.com/Ircama/hostp2pd\n'
+                        'hostp2pd is running in interactive mode.\n'
+                        'Type help or ? to list commands.\n')
         except (KeyboardInterrupt, SystemExit):
-            if w_p2p_interpreter:
+            if not args.batch_mode and w_p2p_interpreter:
                 w_p2p_interpreter.postloop()
-            print('\nExiting.\n')
+                print('\nExiting.\n')
+            else:
+                print("hostp2pd batch mode ENDED.")
             sys.exit(1)
