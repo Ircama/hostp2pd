@@ -47,8 +47,14 @@ It shall be even with the last commit.
 Check the GitHub Action: https://github.com/Ircama/hostp2pd/actions
 
 Check PyPI:
-https://test.pypi.org/manage/project/hostp2pd/releases/
-https://pypi.org/manage/project/hostp2pd/releases/
+
+- https://test.pypi.org/manage/project/hostp2pd/releases/
+- https://pypi.org/manage/project/hostp2pd/releases/
+
+End user publishing page:
+
+- https://test.pypi.org/project/hostp2pd
+- https://pypi.org/project/hostp2pd
 
 Verify whether wrong builds need to be removed.
 

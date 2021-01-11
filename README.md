@@ -28,6 +28,7 @@ python3 -m pip install hostp2pd
 To install from GitHub:
 
 ```shell
+sudo apt-get install git
 python3 -m pip install git+https://github.com/Ircama/hostp2pd
 ```
 
@@ -59,7 +60,7 @@ Using a P2P-Device interface and a configuration file:
 hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
 ```
 
-- `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the physical interface *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
+- `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the interface device *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
 - `-c` option: a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file ([here](hostp2pd/hostp2pd.yaml) an example) is not strictly necessary to start a first test; a minimum parameter would be the password, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
   ```shell
   hostp2pd -i p2p-dev-wlan0 -c - <<\eof
@@ -112,6 +113,15 @@ Every line contains alternative combinations. For instance, with the Broadcom BC
 ```
 
 It means that not more than one AP or P2P-GO interface can be configured at the same time, with a single P2P-GO group supported.
+
+
+Same for the Intel Wireless-AC 9560 Ubuntu driver:
+
+```
+valid interface combinations:
+     * #{ managed } <= 1, #{ AP, P2P-client, P2P-GO } <= 1, #{ P2P-device } <= 1,
+       total <= 3, #channels <= 2
+```
 
 Optionally, *hostp2pd* allows the `-p` option, which defines an external program to be run with "stop" argument before activating a group and with "start" argument after deactivating a group; this allows controlling external AP resources before groups are created or after groups are removed.
 
@@ -485,17 +495,20 @@ Notice that with Raspberry Pi, running AP and P2P concurrently is not supported.
 
 # MAC Randomization
 
-Linux and Android devices use by default randomized MAC addresses when probing for new Wi-Fi Direct networks while not currently associated with a network.
+Some Linux and Android device drivers use by default randomized MAC addresses when starting network interfaces.
+
+This might be probably checked with `iw list | grep 'randomizing MAC-addr'`; many devices, (including Raspberry Pi) return this:
+
+```
+Device supports randomizing MAC-addr in sched scans.
+```
 
 MAC randomization prevents listeners from using MAC addresses to build a history of device activity, thus increasing user privacy.
 
-Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart. [This appears to be appropriately managed by Android devices](https://source.android.com/devices/tech/connect/wifi-direct#mac_randomization).
+Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart: if a device supports MAC Randomization, restarting *wpa_supplicant* will change the local MAC address of the related virtual interface; a persistent group reinvoked with different MAC address denies the reuse of the saved group in the peer system.
+[This appears to be appropriately managed by Android devices](https://source.android.com/devices/tech/connect/wifi-direct#mac_randomization).
 
-Nevertheless, on some UNIX devices (e.g., with Raspberry Pi OS., based on Debian Buster) reinvoking a persistent group after restarting wpa_supplicant will change the local MAC address of the related virtual interface, breaking the reuse of the saved group in the peer system.
-
-This limitation prevents to setup effective Wi-Fi Direct configurations between Raspberry Pi and Android mobile phones, which need to persist after a reboot.
-
-The only configuration strategy that at the moment appears to prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; in case, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, a modification of the current version of *wpa_supplicant* might be needed.
+The only configuration strategy that at the moment appears to already prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, a modification of the current version of *wpa_supplicant* might be needed.
 
 The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them; it exploits the usage of `p2p_device_persistent_mac_addr`, but not `p2p_device_random_mac_addr`.
 
@@ -590,6 +603,41 @@ If usage of `p2p_device_persistent_mac_addr` is not available, as alternative, t
 _______________
 
 __Notes__
+
+# wpa_supplicant issues
+
+## wpa_cli does not connect to wpa_supplicant
+
+Test *wpa_cli* using sudo. if it does not connect, check the configuration of the ctrl_interface socket used with your system (e.g., `-C` option of wpa_supplicant* or *ctrl_interface* in its configuration file).
+
+If *wpa_cli* connects the network device (e.g., *wlan0*) but not the P2P-Device (e.g., *p2p-dev-wlan0*), use `iw dev` to check the presence of a P2P-Device. If not existing, then *wpa_supplicant* has configuration issues. Run *wpa_supplicant* with `-dd` options and verify the error messages:
+
+```shell
+kill <wpa supplicant process>
+sudo /sbin/wpa_supplicant -c<configuration file> -Dnl80211,wext -i<network device> -dd
+```
+
+## Failed to create a P2P Device -22 (Invalid argument)
+
+*wpa_supplicant* error message:
+
+```
+gen 10 20:07:20 ubuntu wpa_supplicant[46251]: Successfully initialized wpa_supplicant
+gen 10 20:07:20 ubuntu wpa_supplicant[46251]: nl80211: kernel reports: Attribute failed policy validation
+gen 10 20:07:20 ubuntu wpa_supplicant[46251]: Failed to create interface p2p-dev-wlp0s20f3: -22 (Invalid argument)
+gen 10 20:07:20 ubuntu wpa_supplicant[46251]: nl80211: Failed to create a P2P Device interface p2p-dev-wlp0s20f3
+gen 10 20:07:20 ubuntu wpa_supplicant[46251]: P2P: Failed to enable P2P Device interface
+```
+
+This might occur because the interface name could be too long for some internal procedures; for instance: `wlp0s20f3` should not work; change it to `wlan0`:
+
+```shell
+ip link set down wlp0s20f3 # this avoid error "RTNETLINK answers: Device or resource busy"
+ip link set wlp0s20f3 name wlan0
+ip link set up wlan0
+```
+
+# Other notes
 
 The specifications of Wi-Fi Direct are developed and published by the [Wi-Fi Alliance consortium](https://www1.wi-fidev.org/discover-wi-fi/wi-fi-direct).
 
