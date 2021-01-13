@@ -603,8 +603,15 @@ If usage of `p2p_device_persistent_mac_addr` is not available, as alternative, t
 _______________
 
 __Notes__
+=========
 
 # wpa_supplicant issues
+
+## Android device never browsing the UNIX system running wpa_supplicant
+
+Check that the Android device supports both 2.4 GHz and 5 GHz bands: *wpa_supplicant* might have used a 5 GHz channel for the P2P-GO group, which will not be received by an Android device only supporting the 2.4 GHz band.
+
+To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `  p2p_group_add_opts: freq=2` in *hostp2pd.yaml*.
 
 ## wpa_cli does not connect to wpa_supplicant
 

@@ -7,7 +7,7 @@
 %YAML 1.1
 ---
 # Configuration settings (uncomment to enable the configuration parameters)
-hostp2pd:
+hostp2pd: # (remember to indent options)
 #   select_timeout_secs: # see read_wpa() and find_timing_level
 #     normal:    10 # seconds. Period to send p2p_find refreshes
 #     connect:   90 # seconds. Increased timing while p2p_connect
@@ -19,8 +19,11 @@ hostp2pd:
 #  max_num_wpa_cli_failures: 20 # max number of wpa_cli errors
 #  max_scan_polling: 2 # max number of p2p_find consecutive polling (0=infinite number)
 #  pbc_in_use: None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
+#  p2p_group_add_opts: None # Arguments to add to p2p_group_add, like freq=2 or freq=5
+#  p2p_connect_opts: None # Arguments to add to p2p_connect, like freq=2 or freq=5
 #  activate_persistent_group: True # Activate a persistent group at process startup
 #  activate_autonomous_group: False # Activate an autonomous group at process startup
+#  ssid_postfix: "Group" # Postfix string to be added to the automatically generated groups
 #  dynamic_group: False # allow removing group after a session disconnects
 #  persistent_network_id: None # persistent group network number (None = first in wpa_supplicant config.)
 #  max_negotiation_time: 120 # seconds. Time for a station to enter the PIN

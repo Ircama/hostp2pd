@@ -96,8 +96,11 @@ class HostP2pD:
     max_num_wpa_cli_failures = 20 # max number of wpa_cli errors
     max_scan_polling = 2 # max number of p2p_find consecutive polling (0=infinite number)
     pbc_in_use = None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
+    p2p_group_add_opts = None # Arguments to add to p2p_group_add, like freq=2 or freq=5
+    p2p_connect_opts = None # Arguments to add to p2p_connect, like freq=2 or freq=5
     activate_persistent_group = True # Activate a persistent group at process startup
     activate_autonomous_group = False # Activate an autonomous group at process startup
+    ssid_postfix = "Group" # Postfix string to be added to the automatically generated groups
     persistent_network_id = None # persistent group network number (None = first in wpa_supplicant config.)
     max_negotiation_time = 120 # seconds. Time for a station to enter the PIN
     dynamic_group = False # allow removing group after a session disconnects
@@ -120,8 +123,11 @@ max_num_failures: <class 'float'>
 max_num_wpa_cli_failures: <class 'float'>
 max_scan_polling: <class 'float'>
 pbc_in_use: <class 'bool'>
+p2p_group_add_opts: <class 'str'>
+p2p_connect_opts: <class 'str'>
 activate_persistent_group: <class 'bool'>
 activate_autonomous_group: <class 'bool'>
+ssid_postfix: <class 'str'>
 persistent_network_id: <class 'int'>
 max_negotiation_time: <class 'float'>
 dynamic_group: <class 'bool'>
@@ -675,12 +681,14 @@ pbc_white_list: <class 'list'>
                 persistent_postfix += "=" + self.persistent_network_id
         if self.pbc_in_use:
             self.write_wpa("p2p_connect " + station + " pbc" +
-                persistent_postfix)
+                persistent_postfix + (" " + self.p2p_connect_opts
+                            if self.p2p_connect_opts else ""))
             logging.warning('Connection request (pbc method): %s', station)
         else:
             self.write_wpa(
                 "p2p_connect " + station + " " + self.password + ' display' +
-                     persistent_postfix)
+                     persistent_postfix + (" " + self.p2p_connect_opts
+                            if self.p2p_connect_opts else ""))
             logging.warning('Connection request (PIN method): %s', station)
         self.p2p_connect_time = time.time()
         self.group_type = 'Negotiated (always won)'
@@ -812,7 +820,9 @@ pbc_white_list: <class 'list'>
                 if (self.activate_persistent_group
                         and not self.dynamic_group
                         and not ssid):
-                    self.write_wpa("p2p_group_add persistent")
+                    self.write_wpa("p2p_group_add persistent" +
+                        (" " + self.p2p_group_add_opts
+                            if self.p2p_group_add_opts else ""))
                     wait_cmd = time.time()
                     logging.warning("Starting generic persistent group")
                     self.group_type = 'Generic persistent'
@@ -839,7 +849,9 @@ pbc_white_list: <class 'list'>
                     continue
                 self.external_program("stop")
                 self.write_wpa("p2p_group_add persistent=" +
-                    self.persistent_network_id)
+                    self.persistent_network_id +
+                        (" " + self.p2p_group_add_opts
+                            if self.p2p_group_add_opts else ""))
                 self.group_type = 'Persistent'
                 wait_cmd = time.time()
                 logging.warning(
@@ -1164,11 +1176,17 @@ pbc_white_list: <class 'list'>
                     self.monitor_group)
                 self.find_timing_level = 'enroller'
             else: # Core startup
+                if self.ssid_postfix:
+                    self.write_wpa(
+                        "p2p_set ssid_postfix " + self.ssid_postfix)
                 self.monitor_group = self.list_or_remove_group(remove=False)
                 if self.activate_autonomous_group and not self.monitor_group:
-                    self.write_wpa("p2p_group_add")
+                    self.write_wpa("p2p_group_add" +
+                        (" " + self.p2p_group_add_opts
+                            if self.p2p_group_add_opts else ""))
                     self.group_type = 'Autonomous'
-                    self.monitor_group = self.list_or_remove_group(remove=False)
+                    self.monitor_group = self.list_or_remove_group(
+                        remove=False)
                 if self.monitor_group:
                     self.ssid_group = self.analyze_existing_group(
                         self.monitor_group)
@@ -1180,7 +1198,8 @@ pbc_white_list: <class 'list'>
                             )
                         )
                 if self.ssid_group:
-                    logging.info('Configured autonomous/persistent group "%s"',
+                    logging.info(
+                        'Configured autonomous/persistent group "%s"',
                         self.ssid_group)
                 if self.monitor_group:
                     logging.info('Active group interface "%s"',
