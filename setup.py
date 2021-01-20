@@ -106,4 +106,5 @@ setup(
         'python-daemon',
         'pyyaml'
     ],
+    python_requires='>3.5'
 )
