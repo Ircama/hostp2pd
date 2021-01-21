@@ -5,7 +5,7 @@ __The Wi-Fi Direct Session Manager__
 
 *hostp2pd* implements a soft host [Access Point](https://en.wikipedia.org/wiki/Wireless_access_point) (AP) software in [Wi-Fi Direct](https://en.wikipedia.org/wiki/Wi-Fi_Direct) mode, enabling a [wireless network interface card](https://en.wikipedia.org/wiki/Wireless_network_interface_controller) to act as *Ad hoc* access point and [Wi-Fi Protected Setup](https://en.wikipedia.org/wiki/Wi-Fi_Protected_Setup) (WPS) [authentication server](https://en.wikipedia.org/wiki/Authentication_server). It features basic functionalities roughly similar to [hostapd](https://en.wikipedia.org/wiki/Hostapd) (with its [hostapd.conf](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) configuration file), which is the common AP software integrated with *wpa_supplicant*, generally used for [infrastructure mode networking](https://en.wikipedia.org/wiki/Service_set_(802.11_network)#Infrastructure_mode). When implementing a [P2P persistent group](https://praneethwifi.in/2019/11/23/p2p-group-formation-procedure-persistent-method/), [wpa_supplicant](https://en.wikipedia.org/wiki/Wpa_supplicant) offers the [P2P-GO](https://en.wikipedia.org/wiki/Wireless_LAN#Peer-to-peer) features enabled by *hostp2pd* to connect P2P Clients like Android smartphones, as well as provide the standard infrastructure AP mode to the same P2P-GO group, without the need of *hostapd*.
 
-In order to accept [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients, activate a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner) and perform WPS authentication, *hostp2pd* fully relies on *wpa_supplicant*, interfacing it through [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
+In order to accept [Wi-Fi Direct](https://www.wi-fi.org/discover-wi-fi/wi-fi-direct) connections from P2P Clients, to activate a local [P2P-GO](https://w1.fi/wpa_supplicant/devel/p2p.html) (Wi-Fi Direct Group Owner) and to perform WPS authentication, *hostp2pd* fully relies on *wpa_supplicant*, interfacing it through the [wpa_cli](https://manpages.debian.org/stretch/wpasupplicant/wpa_cli.8.en.html) command-line interface ([CLI](https://en.wikipedia.org/wiki/Command-line_interface)): *wpa_cli* is run in background and [p2p commands](https://w1.fi/cgit/hostap/plain/wpa_supplicant/README-P2P) are piped via pseudo-tty communication, while events returned by *wpa_cli* are read and processed.
 
 *hostp2pd* includes a command-line interface mode for monitoring and controlling; it can be executed as a batch or as a daemon and provides an API for integration into other Python programs.
 
@@ -272,7 +272,7 @@ Persistent|`activate_persistent_group: True`, `activate_autonomous_group: False`
 
 Using an autonomous GO for a non-persistent group, the passphrase and SSID are automatically created by *wpa_supplicant* (using random strings) and the related settings should not be modified. A persistent group can be either manually or automatically created.
 
-Using the standard group negotiation method with fixed password, an Android client (at least, up to Android 10) will not save the password (the authorization has to be performed on every connection). Using persistent groups, with newer Android releases a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction). Ref. also [Compatibility](#Compatibility)
+Using the standard group negotiation method with fixed PIN, an Android client (at least, up to Android 11) will not save the PIN (the authorization has to be performed on every connection). Using persistent groups, with newer Android releases a local group information element is permanently stored in the Android handset (until it is deleted by hand) and this enables to directly perform all subsequent reconnections without separate authorization (e.g., without user interaction). Ref. also [Compatibility](#Compatibility)
 
 In all cases that foresee a negotiation (usage of `p2p_connect`), the UNIX System will always become GO (ref. `p2p_go_intent=15` in *wpa_supplicant.conf*).
 
@@ -292,7 +292,7 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
 - UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster); the recompiled code to overcome the [MAC randomization issue with persistent groups](#mac-randomization) is based on *wpa_supplicant* version [v2.10-devel-hostap_2_9-1798-g581dfcc41+.](http://w1.fi/cgit/hostap).
 - Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 is not supported.
-- P2P Clients including Android 10 and Android 7 smartphones. Wi-Fi Direct is present in most smartphones with at least Android 4.0; notice anyway that only recent Android versions support the local saving of persistent groups. Android 10+ supports it for instance, while Android 7 does not, so an Android 7 device always needs enrolment when connecting a persistent group. Android 10 has a very slow notification of announced groups and needs to exit and re-enter the Wi-Fi Direct panel each time a connection is disconnected and then reconnected. Android 7 does not require exiting and re-entering; it also shows the UNIX system immediately, including the AP icon (not shown by Android 10). Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
+- P2P Clients including Android smartphones. Wi-Fi Direct is present in most smartphones with at least Android 4.0; notice anyway that only recent Android versions support the local saving of persistent groups. Android 8, 9, 10 and 11 support it for instance; not all Android 7 ROMs work well (some always need enrolment when connecting to a persistent group and do not have the capability to save it). Some devices might have a very slow notification of announced groups and need to exit and re-enter the Wi-Fi Direct panel each time a connection is disconnected and then reconnected; some implementations are able to show the UNIX system AP icon. Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
 
 ## Built-in keywords
 
@@ -424,13 +424,13 @@ with hostp2pd as session:
 
 Batch/daemon mode does not need the Context Manager:
 
-```
+```python
 hostp2pd.run()
 ```
 
 To terminate the process:
 
-```
+```python
 hostp2pd.terminate()
 ```
 
