@@ -61,10 +61,10 @@ hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
 ```
 
 - `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the interface device *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
-- `-c` option: a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file ([here](hostp2pd/hostp2pd.yaml) an example) is not strictly necessary to start a first test; a minimum parameter would be the password, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
+- `-c` option: a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file ([here](hostp2pd/hostp2pd.yaml) an example) is not strictly necessary to start a first test; a minimum parameter would be the PIN, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
   ```shell
   hostp2pd -i p2p-dev-wlan0 -c - <<\eof
-  password: "00000000"
+  pin: "00000000"
   eof
   ```
 
@@ -158,7 +158,7 @@ update_config=1                                         # This allows wpa_suppli
 device_name=DIRECT-test                                 # This is the P2P name shown to the Android phones while connecting via Wi-Fi Direct;
                                                         # Use any name in place of "test" and keep the "DIRECT-" prefix.
 device_type=6-0050F204-1                                # (Network Infrastructure / AP)
-config_methods=keypad                                   # "keypad" uses a fixed password on UNIX, which is asked from a keypad popped up on the Android devices
+config_methods=keypad                                   # "keypad" uses a fixed PIN on UNIX, which is asked from a keypad popped up on the Android devices
 p2p_go_intent=15                                        # Force UNIX to become a P2P-GO (Group Owner)
 persistent_reconnect=1                                  # Allow reconnecting to a persistent group without user acknowledgement
 p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
@@ -168,7 +168,7 @@ p2p_device_persistent_mac_addr=<mac address>            # Fixed MAC address over
 # This is an example of P2P persistent group:
 network={                                               # Network profile
         ssid="DIRECT-PP-group"                          # Name of the persistent group saved on the Android phone and shown within the AP names;
-                                                        # use any name in place of "PP-group" and keep the "DIRECT-" prefix.
+                                                        # use any name in place of "PP-group" and keep the "DIRECT-xx-" prefix.
         mode=3                                          # WPAS MODE P2P-GO
         disabled=2                                      # Persistent P2P group
         psk="mysecretpassword"                          # Password used when connecting to the AP (unrelated to P2P-GO enrolment, which is done via WPS)
@@ -181,11 +181,15 @@ network={                                               # Network profile
 
 The above example shows how to predefine a P2P persistent group. Specifically, the `network` profiles will define persistent GO groups [if the following three conditions occur](https://www.spinics.net/lists/hostap/msg05313.html):
 
--	The SSID shall begin with the `DIRECT-...` prefix (P2P_WILDCARD_SSID), otherwise the group is not appropriately announced to the network as a P2P group; any alphanumeric string can be used after `DIRECT-` prefix; empirically, the documented format `DIRECT-<random two octets>` (with optional postfix) is not needed.
+-	The SSID of the P2P-GO shall begin with the `DIRECT-xx-...` prefix (P2P_WILDCARD_SSID), otherwise the group is not appropriately announced to the network as a P2P group; any alphanumeric string can be used after `DIRECT-` prefix; the format `DIRECT-<random two octets>[-<optional postfix>]` is suggested.
 -	A `mode=3` directive shall be present, meaning [WPAS_MODE_P2P_GO](https://w1.fi/wpa_supplicant/devel/structwpa__ssid.html), otherwise the related `p2p_group_add` command fails for unproper group specification.
 -	A `disabled=2` directive shall be present, meaning persistent P2P group, otherwise the stanza is not even recognized and listed as persistent (`disabled=0` indicates normal network; `disabled=1` will announce a disabled network).
 
-If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* creates a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
+If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* asks *wpa_supplicant* to create a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
+
+The optional parameter `ssid_postfix` in the *hostp2pd* configuration file allows adding a fixed postfix string to the SSID whenever a group is created by *wpa_supplicant*  (the form `DIRECT-<random two octets>-<ssid_postfix string>` is used).
+
+Other parameters (like `freq_list`) can be used.
 
 See below for the usage of `p2p_device_persistent_mac_addr`; some nl80211 device drivers allow `p2p_device_random_mac_addr=1` instead of modifying the *wpa_supplicant* code.
 
@@ -245,14 +249,14 @@ Note: `PIDFile` variable cannot be parametrized with `${CONF}` and `${P2PDEVICE}
 The program allows the following WPS authorization methods, named "config_methods"/configuration methods in *wpa_supplicant*, which can be defined in *hostp2pd.yaml*:
 
 - `pbc_in_use: None`: setting *pbc_in_use* to *None* will retrieve the configuration method defined in *wpa_supplicant.conf* (this is the suggested mode, where also the `keypad` method is the suggested one to adopt in *wpa_supplicant.conf*);
-- `pbc_in_use: False`: force the *keypad* configuration method, performing the enrolment with configured password;
-- `pbc_in_use: True`: force the *virtual_push_button* configuration method, performing the enrolment without password.
+- `pbc_in_use: False`: force the *keypad* configuration method, performing the enrolment with configured PIN;
+- `pbc_in_use: True`: force the *virtual_push_button* configuration method, performing the enrolment without PIN.
 
 Configuration methods:
 - *keypad*: the Android phone prompts a soft keypad; the user has to enter a fixed passkey compliant to the one set in the *hostp2pd.yaml* configuration file.
-- *virtual_push_button* (pbc): no password is used. Anyway, a whitelist of client names can be defined (`pbc_white_list`).
+- *virtual_push_button* (pbc): no PIN is used. Anyway, a whitelist of client names can be defined (`pbc_white_list`).
 
-The *keypad* configuration method needs a password configured in *hostp2pd.yaml* through the `password` directive (e.g., `password: "12345678"`; notice also that any password different from eight digits is not accepted by *wpa_supplicant*, unless differently specified by `p2p_passphrase_len`).
+The *keypad* configuration method needs a PIN configured in *hostp2pd.yaml* through the `pin` directive (e.g., `pin: "12345678"`; notice also that any PIN different from eight digits is not accepted by *wpa_supplicant*, unless differently specified by `p2p_passphrase_len`).
 
 Using *virtual_push_button* is extremely weak and discovering the P2P client names can be easily made by any user.
 
@@ -264,7 +268,7 @@ The following table details the use cases:
 
 Group Formation technique|Configuration|Description
 -------------------------|-------------|-----------
-Negotiated on demand|`activate_persistent_group: False`, `activate_autonomous_group: False`, `dynamic_group: True`|Non-persistent P2P Group formation method using non-autonomous negotiation technique; groups are dynamically created and removed by *hostp2pd* via `p2p_connect` and `p2p_group_remove`; in other terms, no group is created at startup and the first client connection performs the P2P group formation; besides, the group is removed upon client disconnection in order to enable subsequent formation of sessions by always keeping a single P2P-GO group active; this means that with this use case only a single P2P Client is allowed (because when a P2P Client disconnects, all active sessions to this group terminate). The related virtual network interface is activated only on demand and the related device driver resource is released when not in use. Authorization process is slow and always needed.
+Negotiated on demand|`activate_persistent_group: False`, `activate_autonomous_group: False`, `dynamic_group: True`|Non-persistent P2P Group formation method using non-autonomous negotiation technique; groups are dynamically created and removed by *hostp2pd* via `p2p_connect` and `p2p_group_remove`; in other terms, no group is created at startup and the first client connection performs the P2P group formation. Subsequent sessions are enrolled to the same group. Only a single P2P-GO group is kept active. The group is removed when the last client session is disconnected. The related virtual network interface is activated only on demand and the related device driver resource is released when not in use. The P2P Client enrolment with its authorization process is slow (especially when forming the group) and always needed.
 Autonomous on demand|`activate_persistent_group: False`, `activate_autonomous_group: False`, `dynamic_group: False`|P2P Group Formation using on-demand Autonomous GO Method, configuring a non-persistent autonomous group activated upon the first connection: *hostp2pd* uses `p2p_connect` to setup the first session, while all subsequent connections are managed through WPS enrolment. Once created, the related virtual network interface will be kept active. Authorization process is always needed and generally slow (especially the first time, when the group formation is required on the GO).
 Autonomous|`activate_persistent_group: False`, `activate_autonomous_group: True`, `dynamic_group: False`|P2P Group Formation using Autonomous GO Method, configuring a non-persistent autonomous group at startup (using `p2p_group_create`); all connections are managed through WPS enrolment. The related virtual network interface will always be active. Authorization process is always needed.
 Persistent on demand|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: True`|Negotiated persistent group. To setup the first session, *hostp2pd* uses `p2p_connect ... persistent or persistent=<network id>`, depending on the existence of a valid persistent group in *wpa_supplicant* configuration file). The authorization process is only performed the first time (slow), than all reconnections are pretty fast and fully automated by *wpa_supplicant*. With this setting, the P2P Client is able on demand to automatically restart the P2P-GO group on the UNIX system and then connect to this group without WPS enrolment. So, after the P2P-GO group is saved to the P2P Client, any subsequent reconnection of the same client is not mediated by *hostp2pd*; the only task of *hostp2pd* is to enrol new clients, in order to allow them to locally save the persistent group. The related virtual network interface is activated only on demand and then kept active.
@@ -282,7 +286,7 @@ Internally, connections to Autonomous/Persistent Groups are managed by a subproc
 
 If different P2P-GO persistent groups are defined in the *wpa_supplicant* configuration file, by default the first one in the configuration file is used (e.g., the first group listed by the *wpa_cli* `list_networks` command including `[P2P-PERSISTENT]`); use `persistent_network_id` to force a specific network id instead of the first one (provided that it is correctly configured in the *wpa_supplicant* configuration file, so that it is recognized as persistent group).
 
-Invitation (`p2p_invite`) is not used by the current version of *hostp2pd*, which is at the moment designed to enable integration of the Wi-Fi Direct Android connection panel with a P2P-GO group on the UNIX system running *wpa_supplicant*; in such use case, invitation is not actually needed, because the Android user must manually form the connection and the Android P2P client (e.g., the Android 10 one) announces itself (*P2P-DEVICE-FOUND* event) only at connection time.
+Invitation (`p2p_invite`) is not used by the current version of *hostp2pd*, which is at the moment designed to enable integration of the Wi-Fi Direct Android connection panel with a P2P-GO group on the UNIX system running *wpa_supplicant*; in such use case, invitation is not actually needed, because the Android user must manually form the connection and in some cases Android P2P clients announce themselves (*P2P-DEVICE-FOUND* event) only at connection time.
 
 # Compatibility
 
@@ -292,7 +296,9 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
 - UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster); the recompiled code to overcome the [MAC randomization issue with persistent groups](#mac-randomization) is based on *wpa_supplicant* version [v2.10-devel-hostap_2_9-1798-g581dfcc41+.](http://w1.fi/cgit/hostap).
 - Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 is not supported.
-- P2P Clients including Android smartphones. Wi-Fi Direct is present in most smartphones with at least Android 4.0; notice anyway that only recent Android versions support the local saving of persistent groups. Android 8, 9, 10 and 11 support it for instance; not all Android 7 ROMs work well (some always need enrolment when connecting to a persistent group and do not have the capability to save it). Some devices might have a very slow notification of announced groups and need to exit and re-enter the Wi-Fi Direct panel each time a connection is disconnected and then reconnected; some implementations are able to show the UNIX system AP icon. Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
+- P2P Clients including Android 11, Android 10, Android 9, Android 8 and Android 7 smartphones.
+
+Wi-Fi Direct is present in most smartphones with at least Android 4.0; notice anyway that only recent Android versions support the local saving of persistent groups. Android 6 does not appear to be able to manage them correctly. With some Android 7 devices, the enrolment is always needed when connecting a persistent group. Some devices have a slower notification of announced groups; generally if the UNIX system device does not appear after a P2P-GO is created, try exiting from the Android Wi-Fi Direct panel and then and re-entering. Some devices also show the AP icon. Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
 
 ## Built-in keywords
 
@@ -403,7 +409,7 @@ hostp2pd = HostP2pD(
     run_program="",             # optional run_program
     force_logging=None,         # optional logging mode
     pbc_white_list=[],          # optional name white list of allowed PBC station names
-    password="00000000")        # optional PIN of keypad enrolment
+    pin="00000000")             # optional PIN of keypad enrolment
 ```
 
 Check [`__init__.py`](hostp2pd/__init__.py) for usage examples of the three allowed invocation methods: interactive, batch and daemon modes.
@@ -424,13 +430,13 @@ with hostp2pd as session:
 
 Batch/daemon mode does not need the Context Manager:
 
-```python
+```
 hostp2pd.run()
 ```
 
 To terminate the process:
 
-```python
+```
 hostp2pd.terminate()
 ```
 
@@ -611,7 +617,7 @@ __Notes__
 
 Check that the Android device supports both 2.4 GHz and 5 GHz bands: *wpa_supplicant* might have used a 5 GHz channel for the P2P-GO group, which will not be received by an Android device only supporting the 2.4 GHz band.
 
-To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `  p2p_group_add_opts: freq=2` in *hostp2pd.yaml*.
+To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `  p2p_group_add_opts: freq=2` in *hostp2pd.yaml*. Anyway, on some devices (Raspberry Pi) after some time the band might be autonomously moved to the 5 GHz band (by the wireless device driver).
 
 ## wpa_cli does not connect to wpa_supplicant
 

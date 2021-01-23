@@ -7,7 +7,12 @@
 # (C) Ircama 2021 - CC-BY-NC-SA-4.0
 #########################################################################
 
-from . import main
+import sys
+try:
+    from .interpreter import main
+except (ImportError, ValueError):
+    print("hostp2pd must be run as a module. E.g., python3 -m hostp2pd")
+    sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -16,7 +16,7 @@ hostp2pd: # (remember to indent options)
 #  p2p_client: "wpa_cli" # wpa_cli program name
 #  min_conn_delay: 40 # seconds delay before issuing another p2p_connect or enroll
 #  max_num_failures: 3 # max number of retries for a p2p_connect
-#  max_num_wpa_cli_failures: 20 # max number of wpa_cli errors
+#  max_num_wpa_cli_failures: 9 # max number of wpa_cli errors
 #  max_scan_polling: 2 # max number of p2p_find consecutive polling (0=infinite number)
 #  pbc_in_use: None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
 #  p2p_group_add_opts: None # Arguments to add to p2p_group_add, like freq=2 or freq=5
@@ -27,7 +27,8 @@ hostp2pd: # (remember to indent options)
 #  dynamic_group: False # allow removing group after a session disconnects
 #  persistent_network_id: None # persistent group network number (None = first in wpa_supplicant config.)
 #  max_negotiation_time: 120 # seconds. Time for a station to enter the PIN
-#  password: "00000000" # password
+#  pin: "00000000" # pin
+#  pin_module: None # external pin module
 #  force_logging: None # force_logging
 #  interface: "p2p-dev-wlan0" # interface
 #  run_program: "" # run_program

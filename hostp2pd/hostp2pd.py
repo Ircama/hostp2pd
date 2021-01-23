@@ -21,12 +21,14 @@ import errno
 import sys
 import traceback
 import ctypes
+import importlib.util
 from ctypes.util import find_library
 from select import select
 import signal
 from distutils.spawn import find_executable
 from multiprocessing import Process, Manager
 from .__version__ import __version__
+from .pin import get_pin
 
 
 class RedactingFormatter(object):
@@ -93,19 +95,20 @@ class HostP2pD:
     p2p_client = 'wpa_cli' # wpa_cli program name
     min_conn_delay = 40 # seconds delay before issuing another p2p_connect or enroll
     max_num_failures = 3 # max number of retries for a p2p_connect
-    max_num_wpa_cli_failures = 20 # max number of wpa_cli errors
+    max_num_wpa_cli_failures = 9 # max number of wpa_cli errors
     max_scan_polling = 2 # max number of p2p_find consecutive polling (0=infinite number)
     pbc_in_use = None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
     p2p_group_add_opts = None # Arguments to add to p2p_group_add, like freq=2 or freq=5
     p2p_connect_opts = None # Arguments to add to p2p_connect, like freq=2 or freq=5
     activate_persistent_group = True # Activate a persistent group at process startup
     activate_autonomous_group = False # Activate an autonomous group at process startup
-    ssid_postfix = "Group" # Postfix string to be added to the automatically generated groups
+    ssid_postfix = None # Postfix string to be added to the automatically generated groups
     persistent_network_id = None # persistent group network number (None = first in wpa_supplicant config.)
     max_negotiation_time = 120 # seconds. Time for a station to enter the PIN
     dynamic_group = False # allow removing group after a session disconnects
     config_file = None # default YAML configuration file
-    password = '00000000' # default password
+    pin = '00000000' # default pin
+    pin_module = None # external pin module
     force_logging = None # default force_logging
     interface = 'p2p-dev-wlan0' # default interface
     run_program = '' # default run_program
@@ -131,7 +134,8 @@ ssid_postfix: <class 'str'>
 persistent_network_id: <class 'int'>
 max_negotiation_time: <class 'float'>
 dynamic_group: <class 'bool'>
-password: <class 'str'>
+pin: <class 'str'>
+pin_module: <class 'str'>
 force_logging: <class 'bool'>
 interface: <class 'str'>
 run_program: <class 'str'>
@@ -185,12 +189,14 @@ pbc_white_list: <class 'list'>
                             except Exception as e:
                                 logging.basicConfig(level=default_level)
                                 logging.critical(
-                                    'Wrong "logging" section in YAML configuration file "%s": %s.',
+                                    'Wrong "logging" section in YAML '
+                                    'configuration file "%s": %s.',
                                     self.config_file, e)
                                 successs = False
                         else:
                             logging.warning(
-                                'Missing "logging" section in YAML configuration file "%s".',
+                                'Missing "logging" section in YAML '
+                                'configuration file "%s".',
                                 self.config_file)
                             logging.basicConfig(level=default_level)
                             successs = False
@@ -199,14 +205,16 @@ pbc_white_list: <class 'list'>
                     # Configuration settings ('hostp2pd' section)
                     if config and 'hostp2pd' in config and config['hostp2pd']:
                         if hasattr(yaml, 'FullLoader'):
-                            yaml_conf_schema = yaml.load(self.conf_schema, Loader=yaml.FullLoader)
+                            yaml_conf_schema = yaml.load(self.conf_schema,
+                                Loader=yaml.FullLoader)
                         else:
                             yaml_conf_schema = yaml.load(self.conf_schema)
                         types = get_type(config['hostp2pd'], yaml_conf_schema)
                         if types:
                             for key, val in types.items():
                                 if val == None:
-                                    logging.critical('Invalid parameter: "%s".', key)
+                                    logging.critical(
+                                        'Invalid parameter: "%s".', key)
                                     types = None
                                     successs = False
                         if types:
@@ -214,16 +222,19 @@ pbc_white_list: <class 'list'>
                                 self.__dict__.update(config['hostp2pd'])
                             except Exception as e:
                                 logging.critical(
-                                    'Wrong "hostp2pd" section in YAML configuration file "%s": %s.',
+                                    'Wrong "hostp2pd" section in YAML '
+                                    'configuration file "%s": %s.',
                                     self.config_file, e)
                                 successs = False
                     else:
                         logging.debug(
-                            'Missing "hostp2pd" section in YAML configuration file "%s".',
+                            'Missing "hostp2pd" section in YAML '
+                            'configuration file "%s".',
                             self.config_file)
                         #successs = False
             except (PermissionError, FileNotFoundError) as e:
-                logging.critical('Cannot open YAML configuration file "%s": %s.',
+                logging.critical(
+                    'Cannot open YAML configuration file "%s": %s.',
                     self.config_file, e)
                 successs = False
         else:
@@ -242,7 +253,8 @@ pbc_white_list: <class 'list'>
                         self.config_file)
                     successs = False
         #logging.debug("YAML configuration logging pathname: %s", self.config_file)
-        hide_from_logging([self.password], "********")
+        self.last_pwd = self.get_pin(self.pin)
+        hide_from_logging([self.last_pwd], "********")
         if do_activation:
             if not self.is_enroller:
                 logging.debug(
@@ -255,20 +267,29 @@ pbc_white_list: <class 'list'>
                 time.sleep(0.1)
                 self.write_wpa('reconfigure')
                 cmd_timeout = time.time()
+                error = 0
                 while True: # Wait 'OK' before continuing
                     input_line = self.read_wpa()
                     if input_line == None:
+                        if error > max_num_failures:
+                            logging.error(
+                                'Internal Error (read_configuration): '
+                                'read_wpa() abnormally terminated')
+                            self.terminate_enrol()
+                            self.terminate()
                         logging.error(
-                            'Internal Error (read_configuration): '
-                            'read_wpa() abnormally terminated')
-                        time.sleep(0.1)
+                            'no data (read_configuration)')
+                        time.sleep(0.5)
+                        error += 1
                         continue
+                    error = 0
                     logging.debug("(reconfigure) Read '%s'", input_line)
                     if self.warn_on_input_errors(input_line):
                         continue
                     if time.time() > cmd_timeout + self.min_conn_delay:
                         logging.debug(
-                            'Terminating reloading "wpa_supplicant" configuration file after timeout '
+                            'Terminating reloading "wpa_supplicant" '
+                            'configuration file after timeout '
                             'of %s seconds', self.min_conn_delay)
                         break
                     if 'OK' in input_line:
@@ -322,6 +343,7 @@ pbc_white_list: <class 'list'>
         self.statistics = {}
         self.addr_register = {}
         self.is_daemon = False
+        self.last_pwd = None
 
 
     def __init__(
@@ -331,7 +353,7 @@ pbc_white_list: <class 'list'>
             run_program=run_program,
             force_logging=force_logging,
             pbc_white_list=pbc_white_list,
-            password=password):
+            pin=pin):
 
         os.umask(0o077) # protect reserved information in logging
         self.logger = logging.getLogger()
@@ -343,7 +365,9 @@ pbc_white_list: <class 'list'>
         self.run_program = run_program
         self.force_logging = force_logging
         self.pbc_white_list = pbc_white_list
-        self.password = password
+        self.pin = pin
+        global get_pin
+        self.get_pin = get_pin
 
 
     def start_process(self):
@@ -504,6 +528,30 @@ pbc_white_list: <class 'list'>
                 return
         self.read_configuration(
             configuration_file=self.config_file)
+
+        # Load pin module
+        if self.pin_module:
+            module_name = "get_pin"
+            spec = importlib.util.spec_from_file_location(module_name,
+                self.pin_module)
+            module = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(module)
+                logging.debug('Using imported pin module "%s".',
+                    self.pin_module)
+                if not 'get_pin' in dir(module):
+                    logging.error(
+                        'Missing "get_pin" function '
+                        'in imported pin module "%s".',
+                        self.pin_module)
+                    raise ValueError('missing function in imported module.')
+                self.get_pin = module.get_pin
+            except Exception as e:
+                logging.error('Using builtin "get_pin" function '
+                    'for this reason: %s', e)
+        self.last_pwd = self.get_pin(self.pin)
+        hide_from_logging([self.last_pwd], "********")
+
         if self.activate_persistent_group and self.activate_autonomous_group:
             logging.error('Error: "activate_persistent_group" '
             'and "activate_autonomous_group" are both active. '
@@ -560,6 +608,8 @@ pbc_white_list: <class 'list'>
                         self.max_scan_polling > 0 and
                         self.scan_polling >= self.max_scan_polling):
                     self.find_timing_level = 'long'
+                    logging.debug("New read_wpa timeout: %s seconds.",
+                        self.select_timeout_secs[self.find_timing_level])
                 timeout = self.select_timeout_secs[self.find_timing_level]
                 reads, _, _ = select([ self.master_fd ], [], [], timeout)
                 if len(reads) > 0:
@@ -603,14 +653,16 @@ pbc_white_list: <class 'list'>
             if self.master_fd == None:
                 logging.debug("Process interrupted.")
             else:
-                logging.critical("PANIC - Internal TypeError in read_wpa(): %s", e,
+                logging.critical("PANIC - Internal TypeError in read_wpa(): %s",
+                    e,
                     exc_info=True)
             return None # error
         except OSError as e:
             if e.errno == errno.EBADF or e.errno == errno.EIO: # [Errno 9] Bad file descriptor/[Errno 5] Input/output error
                 logging.debug("Read interrupted.")
             else:
-                logging.critical("PANIC - Internal OSError in read_wpa(): %s", e,
+                logging.critical(
+                    "PANIC - Internal OSError in read_wpa(): %s", e,
                     exc_info=True)
             return None # error
         except Exception as e:
@@ -625,7 +677,8 @@ pbc_white_list: <class 'list'>
 
     def write_wpa(self, resp):
         """ write to wpa_cli """
-        logging.debug("(enroller) Write: %s" if self.is_enroller else "Write: %s",
+        logging.debug(
+            "(enroller) Write: %s" if self.is_enroller else "Write: %s",
             repr(resp))
         resp += '\n'
         try:
@@ -634,12 +687,14 @@ pbc_white_list: <class 'list'>
             if self.master_fd == None:
                 logging.debug("Process interrupted.")
             else:
-                logging.critical("PANIC - Internal TypeError in write_wpa(): %s",
+                logging.critical(
+                    "PANIC - Internal TypeError in write_wpa(): %s",
                     e, exc_info=True)
             return None # error
         except Exception as e:
             if not self.terminate_is_active:
-                logging.critical("PANIC - Internal error in write_wpa(): %s", e,
+                logging.critical(
+                    "PANIC - Internal error in write_wpa(): %s", e,
                     exc_info=True)
             return None # error
 
@@ -664,7 +719,8 @@ pbc_white_list: <class 'list'>
 
     def start_session(self, station = None):
         if time.time() < self.p2p_connect_time + self.min_conn_delay:
-            logging.debug('Will not p2p_conect due to unsufficient p2p_connect_time')
+            logging.debug(
+                'Will not p2p_conect due to unsufficient p2p_connect_time')
             return
         self.find_timing_level = 'connect'
         if station:
@@ -685,8 +741,10 @@ pbc_white_list: <class 'list'>
                             if self.p2p_connect_opts else ""))
             logging.warning('Connection request (pbc method): %s', station)
         else:
+            self.last_pwd = self.get_pin(self.pin)
+            hide_from_logging([self.last_pwd], "********")
             self.write_wpa(
-                "p2p_connect " + station + " " + self.password + ' display' +
+                "p2p_connect " + station + " " + self.last_pwd + ' display' +
                      persistent_postfix + (" " + self.p2p_connect_opts
                             if self.p2p_connect_opts else ""))
             logging.warning('Connection request (PIN method): %s', station)
@@ -703,14 +761,22 @@ pbc_white_list: <class 'list'>
         monitor_group = None
         wait_cmd = 0
         cmd_timeout = time.time()
+        error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (list_or_remove_group): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
                 logging.error(
-                    'Internal Error (list_or_remove_group): '
-                    'read_wpa() abnormally terminated')
-                time.sleep(0.1)
+                    'no data (list_or_remove_group)')
+                time.sleep(0.5)
+                error += 1
                 continue
+            error = 0
             logging.debug("reading '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
@@ -755,6 +821,65 @@ pbc_white_list: <class 'list'>
         return monitor_group
 
 
+    def count_active_sessions(self):
+        """ Enroller counts the number of active sessions
+        of a P2P-GO group and writes this number to Core
+        """
+        if not self.is_enroller:
+            logging.debug(
+                'Enroller shall call count_active_sessions procedure!')
+            return None
+        logging.debug(
+            'Starting count_active_sessions procedure')
+        self.write_wpa("list_sta")
+        self.write_wpa("ping")
+        n_stations = 0
+        wait_cmd = 0
+        cmd_timeout = time.time()
+        error = 0
+        while True:
+            input_line = self.read_wpa()
+            if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (count_active_sessions): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
+                logging.error(
+                    'no data (count_active_sessions)')
+                time.sleep(0.5)
+                error += 1
+                continue
+            error = 0
+            logging.debug("reading '%s'", input_line)
+            if self.warn_on_input_errors(input_line):
+                continue
+            if time.time() > cmd_timeout + self.min_conn_delay:
+                logging.debug(
+                    'Terminating count_active_sessions procedure '
+                    'after timeout of %s seconds.',
+                    self.min_conn_delay)
+                break
+            if re.match(
+                "^[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$",
+                    input_line.lower()):
+                n_stations += 1
+                logging.debug(
+                    'Active station "%s". n_stations=%s',
+                    input_line, n_stations)
+                continue
+            if "PONG" in input_line and not wait_cmd:
+                logging.debug(
+                    'Terminating count_active_sessions. n_stations=%s.',
+                    n_stations)
+                break
+        os.write(self.father_slave_fd,
+            (("HOSTP2PD_ACTIVE_SESSIONS" +
+                "\t" + str(n_stations) + '\n').encode()))
+        return n_stations
+
+
     def list_start_pers_group(self, start_group=False):
         """ list or start p2p persistent group; ssid (or None) is returned """
         logging.debug(
@@ -768,20 +893,29 @@ pbc_white_list: <class 'list'>
         self.write_wpa("ping")
         wait_cmd = 0
         cmd_timeout = time.time()
+        error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (list_start_pers_group): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
                 logging.error(
-                    'Internal Error (list_start_pers_group): '
-                    'read_wpa() abnormally terminated')
-                time.sleep(0.1)
+                    'no data (list_start_pers_group)')
+                time.sleep(0.5)
+                error += 1
                 continue
+            error = 0
             logging.debug("(list_start_pers_group) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
             if time.time() > cmd_timeout + self.min_conn_delay:
                 logging.debug(
-                    'Terminating persistent group start procedure after timeout of %s seconds.',
+                    'Terminating persistent group start procedure '
+                    'after timeout of %s seconds.',
                     self.min_conn_delay)
                 if self.monitor_group:
                     self.ssid_group = self.analyze_existing_group(
@@ -803,7 +937,8 @@ pbc_white_list: <class 'list'>
                     ssid = ssid_arg
                 logging.info('Persistent group started %s', self.monitor_group)
                 logging.debug(
-                    'Persistent group activation procedure completed. ssid="%s"',
+                    'Persistent group activation procedure completed. '
+                    'ssid="%s"',
                     ssid)
                 return ssid
             if 'OK' in input_line:
@@ -864,14 +999,16 @@ pbc_white_list: <class 'list'>
 
     def analyze_existing_group(self, group):
         """ ssid is returned if a persistent group is active, otherwise None """
-        logging.debug('Starting analyze_existing_group procedure. group="%s"', group)
+        logging.debug('Starting analyze_existing_group procedure. group="%s"',
+            group)
         if not group:
             logging.error("No group available.")
             return None
         ssid = None
         ssid_pg = self.list_start_pers_group(start_group=False)
         if not ssid_pg:
-            logging.info('No persistent group available for interface "%s".', group)
+            logging.info('No persistent group available for interface "%s".',
+                group)
             return None
         self.write_wpa("interface " + group)
         self.write_wpa("status")
@@ -879,16 +1016,25 @@ pbc_white_list: <class 'list'>
         self.write_wpa("ping")
         cmd_timeout = time.time()
         logging.debug(
-            'List status of persistent group "%s", checking existence of ssid "%s"',
+            'List status of persistent group "%s", '
+            'checking existence of ssid "%s"',
             group, ssid_pg)
+        error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (analyze_existing_group): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
                 logging.error(
-                    'Internal Error (analyze_existing_group): '
-                    'read_wpa() abnormally terminated')
-                time.sleep(0.1)
+                    'no data (analyze_existing_group)')
+                time.sleep(0.5)
+                error += 1
                 continue
+            error = 0
             logging.debug("(analyze_existing_group) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
@@ -905,7 +1051,8 @@ pbc_white_list: <class 'list'>
                 if tokens[1] == ssid_pg:
                     ssid = tokens[1]
                 logging.debug(
-                    'Persistent group "%s" with ssid "%s" reports status ssid "%s".',
+                    'Persistent group "%s" with ssid "%s" reports '
+                    'status ssid "%s".',
                     group, ssid_pg, tokens[1])
                 continue
             if "PONG" in input_line:
@@ -923,14 +1070,22 @@ pbc_white_list: <class 'list'>
         wait_cmd = 0
         cmd_timeout = time.time()
         found = False
+        error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (get_config_methods): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
                 logging.error(
-                    'Internal Error (get_config_methods): '
-                    'read_wpa() abnormally terminated')
-                time.sleep(0.1)
+                    'no data (get_config_methods)')
+                time.sleep(0.5)
+                error += 1
                 continue
+            error = 0
             logging.debug("(get_config_methods) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
@@ -952,7 +1107,8 @@ pbc_white_list: <class 'list'>
                 continue
             if "PONG" in input_line:
                 logging.debug(
-                    'Terminating get config_methods procedure; pbc_in_use=%s', pbc_in_use)
+                    'Terminating get config_methods procedure; pbc_in_use=%s',
+                    pbc_in_use)
                 break
         return pbc_in_use
 
@@ -1016,14 +1172,22 @@ pbc_white_list: <class 'list'>
             dev_name, mac_addr, type, self.monitor_group)
         cmd_timeout = time.time()
         self.write_wpa("interface " + self.monitor_group)
+        error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (in_process_enrol): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
                 logging.error(
-                    'Internal Error (in_process_enrol): '
-                    'read_wpa() abnormally terminated')
-                time.sleep(0.1)
+                    'no data (in_process_enrol)')
+                time.sleep(0.5)
+                error += 1
                 continue
+            error = 0
             logging.debug("(in_process_enrol) Read '%s'", input_line)
             if self.warn_on_input_errors(input_line):
                 continue
@@ -1041,7 +1205,9 @@ pbc_white_list: <class 'list'>
                 if tokens[1] == mac_addr:
                     break
         if type == self.ENROL_TYPE.PIN:
-            self.write_wpa("wps_pin " + mac_addr + " " + self.password)
+            self.last_pwd = self.get_pin(self.pin)
+            hide_from_logging([self.last_pwd], "********")
+            self.write_wpa("wps_pin " + mac_addr + " " + self.last_pwd)
         if type == self.ENROL_TYPE.PBC:
             self.write_wpa("wps_pbc " + mac_addr)
         self.write_wpa("interface " + self.interface)
@@ -1060,7 +1226,7 @@ pbc_white_list: <class 'list'>
             return True
         if 'Connected to interface' in input:
             return True
-        if input == self.password: # do not add the password in statistics
+        if input == self.last_pwd: # do not add the pin in statistics
             return True
         # Process wpa_supplicant connection problems
         if ("Could not connect to wpa_supplicant" in input
@@ -1118,6 +1284,9 @@ pbc_white_list: <class 'list'>
             #if ((self.is_enroller and self.wpa_supplicant_errors) or
             #        self.wpa_supplicant_errors > self.max_num_wpa_cli_failures):
             if self.wpa_supplicant_errors > self.max_num_wpa_cli_failures:
+                if self.is_enroller:
+                    os.write(
+                        self.father_slave_fd, "HOSTP2PD_TERMINATE_ENROLLER")
                 self.terminate()
                 return False
             return True
@@ -1134,7 +1303,7 @@ pbc_white_list: <class 'list'>
             if stat_tokens[1]:
                 self.register_statistics("E>" + stat_tokens[1])
             return True
-        if wpa_cli == self.password or event_name == self.password: # do not add the password in statistics
+        if wpa_cli == self.last_pwd or event_name == self.last_pwd: # do not add the pin in statistics
             return True
         event_stat_name = ''
         if event_name:
@@ -1234,6 +1403,8 @@ pbc_white_list: <class 'list'>
         # <3>CTRL-EVENT-DISCONNECTED bssid=de:a6:32:01:82:03 reason=3 locally_generated=1
         if self.is_enroller and event_name == 'CTRL-EVENT-DISCONNECTED':
             logging.debug('CTRL-EVENT-DISCONNECTED received: terminating enroller')
+            self.count_active_sessions()
+            os.write(self.father_slave_fd, "HOSTP2PD_TERMINATE_ENROLLER")
             self.terminate()
             return False
 
@@ -1277,6 +1448,7 @@ pbc_white_list: <class 'list'>
             logging.debug(
                 "(enroller) Station '%s' CONNECTED to group '%s'",
                 p2p_dev_addr, self.monitor_group)
+            self.count_active_sessions()
             return True
 
         # <3>AP-STA-DISCONNECTED 56:3b:c6:4a:4a:b3 p2p_dev_addr=56:3b:c6:4a:4a:b3
@@ -1284,7 +1456,18 @@ pbc_white_list: <class 'list'>
             logging.debug(
                 "(enroller) Station '%s' DISCONNECTED from group '%s'",
                 p2p_dev_addr, self.monitor_group)
+            self.count_active_sessions()
             return True
+
+        # <3>AP-DISABLED
+        if self.is_enroller and event_name == 'AP-DISABLED':
+            logging.debug(
+                "(enroller) AP-DISABLED: terminating Enroller on group '%s'",
+                self.monitor_group)
+            self.count_active_sessions()
+            os.write(self.father_slave_fd, "HOSTP2PD_TERMINATE_ENROLLER")
+            self.terminate()
+            return False
 
         # <3>WPS-ENROLLEE-SEEN 56:3b:c6:4a:4a:b3 811e2280-33d1-5ce8-97e5-6fcf1598c173 10-0050F204-5 0x4388 0 1 [test]
         if event_name == 'WPS-ENROLLEE-SEEN': # only on the GO (Enroller)
@@ -1295,13 +1478,39 @@ pbc_white_list: <class 'list'>
                     self.pbc_white_list == [] or dev_name in self.pbc_white_list):
                 self.write_wpa("wps_pbc " + mac_addr)
             else:
-                self.write_wpa("wps_pin " + mac_addr + " " + self.password)
+                self.last_pwd = self.get_pin(self.pin)
+                hide_from_logging([self.last_pwd], "********")
+                self.write_wpa("wps_pin " + mac_addr + " " + self.last_pwd)
             return True
 
         if self.is_enroller: # processing enroller commands terminates here
             return self.default_workflow(event_stat_name)
 
         #___________________________________________________________________________________________
+        if event_name == "HOSTP2PD_TERMINATE_ENROLLER":
+            self.terminate_enrol()
+            self.find_timing_level = 'normal'
+            self.monitor_group = None
+            return True
+
+        if event_name == "HOSTP2PD_ACTIVE_SESSIONS":
+            stat_tokens = wpa_cli.split('\t')
+            if stat_tokens[1]:
+                n_stations = stat_tokens[1]
+                self.statistics["n_stations"] = n_stations
+                if (n_stations == 0 and
+                        self.dynamic_group and
+                        not self.activate_persistent_group):
+                    if self.monitor_group:
+                        self.write_wpa("p2p_group_remove " + self.monitor_group)
+                        self.monitor_group = ''
+                    else:
+                        self.monitor_group = self.list_or_remove_group(True)
+                    time.sleep(3)
+                    self.external_program("start")
+                self.write_wpa("p2p_find")
+            return True
+
         # <3>P2P: Reject scan trigger since one is already pending
         if 'P2P: Reject scan trigger since one is already pending' in wpa_cli:
             self.scan_polling += 1
@@ -1431,15 +1640,6 @@ pbc_white_list: <class 'list'>
             logging.warning('Station "%s" disconnected.', p2p_dev_addr)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
-            if self.dynamic_group and not self.activate_persistent_group:
-                if self.monitor_group:
-                    self.write_wpa("p2p_group_remove " + self.monitor_group)
-                    self.monitor_group = ''
-                else:
-                    self.monitor_group = self.list_or_remove_group(True)
-                time.sleep(3)
-                self.external_program("start")
-            self.write_wpa("p2p_find")
             return True
 
         # <3>P2P-PROV-DISC-FAILURE p2p_dev_addr=b6:3b:9b:7a:08:96 status=1
