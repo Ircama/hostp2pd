@@ -516,7 +516,7 @@ Anyway, when using persistent groups, MAC addresses shall not vary in order to a
 
 The only configuration strategy that at the moment appears to already prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, a modification of the current version of *wpa_supplicant* might be needed.
 
-The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them; it exploits the usage of `p2p_device_persistent_mac_addr`, but not `p2p_device_random_mac_addr`.
+The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them; it exploits the usage of `p2p_device_persistent_mac_addr` with `p2p_device_random_mac_addr=2`. `update_config=1` is required.
 
 To download *wpa_supplicant* sources and prepare the environment:
 
@@ -528,46 +528,17 @@ cd hostap
 cp wpa_supplicant/defconfig wpa_supplicant/.config
 ```
 
-Perform the following modifications:
+Copy *p2p_device_random_mac_addr-2.patch* from this repository to the *hostap* directory. Then perform the following modifications:
 
 ```bash
-sed 's/ret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, ifname, NULL, NULL,/\
-\tret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, ifname, is_zero_ether_addr(\
-\t\twpa_s->conf->p2p_device_persistent_mac_addr)?NULL:\
-\t\twpa_s->conf->p2p_device_persistent_mac_addr, NULL,/' -i.bak ./wpa_supplicant/p2p_supplicant.c
-
-sed 's/ret = send_and_recv_msgs(drv, msg, handler, arg, NULL, NULL);/if (addr \&\& (iftype == NL80211_IFTYPE_P2P_DEVICE)) {\
-\t\tif(nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr))\
-\t\t\tgoto fail;\
-\t}\
-\
-\tret = send_and_recv_msgs(drv, msg, handler, arg, NULL, NULL);/' -i.bak ./src/drivers/driver_nl80211.c
-```
-
-Description of the above modifications:
-
-Edit *hostap/src/drivers/driver_nl80211.c*. In `nl80211_create_iface_once()`, search for `ret = send_and_recv_msgs(drv, msg, handler, arg, NULL, NULL);` and add the following lines before:
-
-```c
-    if (addr && (iftype == NL80211_IFTYPE_P2P_DEVICE)) {
-            if(nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr))
-                goto fail;
-    }
-```
-
-Then edit *hostap/wpa_supplicant/p2p_supplicant.c*. In `wpas_p2p_add_p2pdev_interface(()`, search `ret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, ifname, NULL, NULL,` and replace the whole line with the following:
-
-```c
-	ret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, ifname, is_zero_ether_addr(
-		wpa_s->conf->p2p_device_persistent_mac_addr)?NULL:
-		wpa_s->conf->p2p_device_persistent_mac_addr, NULL,
+git apply p2p_device_random_mac_addr-2.patch
 ```
 
 You can recompile with the following commands:
 
 ```bash
 cd wpa_supplicant
-make
+make -j$(($(nproc)+1))
 ```
 
 To ensure usage of the same static MAC address with the P2P-Device virtual interface, you can use the created *wpa_supplicant* in place of the existing one:
@@ -580,27 +551,41 @@ cp wpa_supplicant /sbin
 Add the following in *wpa_supplicant.conf*:
 
 ```ini
-p2p_device_persistent_mac_addr=<mac address>
+p2p_device_random_mac_addr=2
 ```
 
-Example:
+A description of the `p2p_device_random_mac_addr` configuration settings obtained with this patch follows.
 
-```ini
-p2p_device_persistent_mac_addr=dc:a6:32:01:02:03
-```
+`p2p_device_random_mac_addr=0`
 
-If usage of `p2p_device_persistent_mac_addr` is not available, as alternative, the MAC address can be hardcoded: edit *hostap/src/drivers/driver_nl80211.c*. In `nl80211_create_iface_once()`,  before `ret = send_and_recv_msgs(drv, msg, handler, arg, NULL, NULL);` add the following:
+This is the default option and uses permanent MAC address (the one set by
+default by the device driver). Notice that, if the device driver is configured
+to always use random MAC adresses, this flag breaks reinvoking a persistent
+group, so flags 1 or 2 should be used instead.
 
-```c
-#define STATIC_MAC_ADDRESS "dc:a6:32:01:02:03"
+`p2p_device_random_mac_addr=1`
 
-	if (iftype == NL80211_IFTYPE_P2P_DEVICE) {
-        u8 mac_addr[ETH_ALEN];
-        if (hwaddr_aton2(STATIC_MAC_ADDRESS, mac_addr))
-            if(nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr))
-                goto fail;
-    }
-```
+This option uses random MAC address on creating the interface if there is no
+persistent group. Besides, if a persistent group is created,
+p2p_device_persistent_mac_addr is set to the MAC address of the P2P Device
+interface, so that this address will be subsequently used to change the MAC
+address of the P2P Device interface. With no persistent group, the random MAC
+address is created by wpa_supplicant, changing the one set by the device
+driver. The device driver shall support SIOCGIFFLAGS/SIOCSIFFLAGS ioctl
+interface control operations.
+
+`p2p_device_random_mac_addr=2`
+
+This flag should be used when the device driver uses random MAC addresses by
+default when a P2P Device interface is created. If
+p2p_device_persistent_mac_addr is set, use this MAC address on creating the
+P2P Device interface. If not set, use the default method adopted by the
+device driver (e.g., random MAC address). Besides, if a persistent group is
+created, p2p_device_persistent_mac_addr is set to the MAC address of the P2P
+Device interface, so that this address will be subsequently used in place of
+the default address set by the device driver. (This option does not need
+support of SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations and
+uses NL80211_ATTR_MAC).
 
 # License
 
