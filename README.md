@@ -528,7 +528,7 @@ cd hostap
 cp wpa_supplicant/defconfig wpa_supplicant/.config
 ```
 
-Copy *p2p_device_random_mac_addr-2.patch* from this repository to the *hostap* directory. Then perform the following modifications:
+Copy [p2p_device_random_mac_addr-2.patch](p2p_device_random_mac_addr-2.patch) from this repository to the *hostap* directory. Then perform the following modifications:
 
 ```bash
 git apply p2p_device_random_mac_addr-2.patch
