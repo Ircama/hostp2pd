@@ -518,20 +518,25 @@ The only configuration strategy that at the moment appears to already prevent MA
 
 The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them; it exploits the usage of `p2p_device_persistent_mac_addr` with `p2p_device_random_mac_addr=2`. `update_config=1` is required.
 
-To download *wpa_supplicant* sources and prepare the environment:
+To download *wpa_supplicant* sources and prepare the environment on Ubuntu:
 
 ```bash
-git clone git://w1.fi/srv/git/hostap.git
+sudo apt-get update
+sudo apt-get install -y git
 sudo apt-get install -y libnl-genl-3-dev libnl-route-3-dev
-sudo apt install build-essential libdbus-glib-1-dev libgirepository1.0-dev
+sudo apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
+sudo apt-get install -y libssl-dev
+
+git clone git://w1.fi/srv/git/hostap.git
 cd hostap
 cp wpa_supplicant/defconfig wpa_supplicant/.config
 ```
 
-Copy [p2p_device_random_mac_addr-2.patch](p2p_device_random_mac_addr-2.patch) from this repository to the *hostap* directory. Then perform the following modifications:
+Copy [p2p_device_random_mac_addr-2.patch](p2p_device_random_mac_addr-2.patch) from this repository to the *hostap* directory. Then apply the patch:
 
 ```bash
-git apply p2p_device_random_mac_addr-2.patch
+wget https://raw.githubusercontent.com/Ircama/hostp2pd/master/p2p_device_random_mac_addr-2.patch
+git apply -v p2p_device_random_mac_addr-2.patch
 ```
 
 You can recompile with the following commands:
@@ -544,8 +549,16 @@ make -j$(($(nproc)+1))
 To ensure usage of the same static MAC address with the P2P-Device virtual interface, you can use the created *wpa_supplicant* in place of the existing one:
 
 ```bash
-mv /sbin/wpa_supplicant /sbin/wpa_supplicant-org
-cp wpa_supplicant /sbin
+# Example of installation:
+sudo mv /sbin/wpa_supplicant /sbin/wpa_supplicant-org
+sudo systemctl stop dhcpcd # in case wpa_supplicant is managed by dhcpcd
+sudo killall wpa_supplicant # in other cases
+sudo cp wpa_supplicant /sbin
+sudo systemctl start dhcpcd
+pgrep -l wpa_supplicant
+
+# Alternative standard installation example:
+#sudo make install
 ```
 
 Add the following in *wpa_supplicant.conf*:
