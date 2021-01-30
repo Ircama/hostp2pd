@@ -113,6 +113,7 @@ class HostP2pD:
     interface = 'p2p-dev-wlan0' # default interface
     run_program = '' # default run_program
     pbc_white_list = [] # default name white list for push button (pbc) enrolment
+    network_parms = [] # network parameters when creating a peristent group if none is already defined
     conf_schema = '''
 %YAML 1.1
 ---
@@ -140,6 +141,7 @@ force_logging: <class 'bool'>
 interface: <class 'str'>
 run_program: <class 'str'>
 pbc_white_list: <class 'list'>
+network_parms: <class 'list'>
 '''
     ################# End of static configuration ##################################
 
@@ -880,6 +882,68 @@ pbc_white_list: <class 'list'>
         return n_stations
 
 
+    def add_network(self):
+        if len(self.network_parms) == 0:
+            return False
+        logging.debug(
+            'Starting add_network procedure')
+        network_id = None
+        listn = None
+        self.write_wpa("add_network")
+        cmd_timeout = time.time()
+        while True:
+            input_line = self.read_wpa()
+            if input_line == None:
+                if error > max_num_failures:
+                    logging.critical(
+                        'Internal Error (add_network): '
+                        'read_wpa() abnormally terminated')
+                    self.terminate_enrol()
+                    self.terminate()
+                logging.error(
+                    'no data (list_start_pers_group)')
+                time.sleep(0.5)
+                error += 1
+                continue
+            error = 0
+            logging.debug("(add_network) Read '%s'", input_line)
+            if self.warn_on_input_errors(input_line):
+                continue
+            if time.time() > cmd_timeout + self.min_conn_delay:
+                logging.error(
+                    'Terminating add_network procedure '
+                    'after timeout of %s seconds.',
+                    self.min_conn_delay)
+                break
+            tokens = input_line.split()
+            if tokens and tokens[0] == '>': # remove prompt
+                tokens.pop(0)
+                if tokens and tokens[0].isnumeric():
+                    network_id = tokens[0]
+                    listn = 0
+                    input_line = "OK"
+            if 'FAIL' in input_line:
+                logging.error('Cannot add network.')
+                listn = None
+                break
+            if 'OK' in input_line:
+                if (listn == None or
+                        network_id == None or
+                        listn >= len(self.network_parms)):
+                    break
+                self.write_wpa(
+                    "set_network " + network_id + " " +
+                    self.network_parms[listn])
+                listn += 1
+                continue
+        if listn and network_id:
+            self.write_wpa("set_network " + network_id + " mode 3")
+            self.write_wpa("set_network " + network_id + " disabled 2")
+            self.write_wpa("save_config")
+            return True
+        return False
+
+
     def list_start_pers_group(self, start_group=False):
         """ list or start p2p persistent group; ssid (or None) is returned """
         logging.debug(
@@ -950,8 +1014,15 @@ pbc_white_list: <class 'list'>
             if "PONG" in input_line and not wait_cmd:
                 logging.debug(
                     'Terminating list_start_pers_group '
-                    'without starting any group. ssid="%s"',
+                    'without finding any group. ssid="%s"',
                     ssid)
+                if self.add_network():
+                    self.write_wpa("list_networks")
+                    self.write_wpa("ping")
+                    wait_cmd = 0
+                    cmd_timeout = time.time()
+                    error = 0
+                    continue
                 if (self.activate_persistent_group
                         and not self.dynamic_group
                         and not ssid):
@@ -1222,6 +1293,8 @@ pbc_white_list: <class 'list'>
             if input != "Interactive mode":
                 logging.error(input)
             self.do_activation = True
+            self.find_timing_level = 'normal'
+            self.max_scan_polling = 0
             self.terminate_enrol()
             return True
         if 'Connected to interface' in input:

@@ -35,7 +35,13 @@ hostp2pd: # (remember to indent options)
 #  pbc_white_list: # name white list for push button (pbc) enrolment
 #  - "test1"
 #  - "test2"
-
+#  network_parms: # network parameters when creating a peristent group if none is already defined
+#   - psk "your_passphrase"
+#   - ssid "DIRECT-PP-postfix"
+#   - proto RSN
+#   - key_mgmt WPA-PSK
+#   - pairwise CCMP
+#   - auth_alg OPEN
 
 # Log file format
 logging:
