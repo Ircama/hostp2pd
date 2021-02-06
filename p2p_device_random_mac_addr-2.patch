@@ -4,7 +4,7 @@ NOTES
 
 Adding option 2 to the "p2p_device_random_mac_addr" configuration option
 in order to support device drivers which use by default random MAC adresses
-when creating a new P2P Device interface (for instance, the BCM2711 80211
+when creating a new P2P Device interface (for instance, the CYW43455 80211
 wireless device driver included in Raspberry Pi 4 Model B); in such case,
 this option allows to create the P2P Device interface correctly when using
 P2P permanent groups, enabling wpa_supplicant to reuse the same MAC address

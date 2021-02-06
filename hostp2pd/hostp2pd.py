@@ -5,7 +5,7 @@
 # wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
 # https://github.com/Ircama/hostp2pd
 # (C) Ircama 2021 - CC-BY-NC-SA-4.0
-#########################################################################
+##########################################################################
 import termios
 import subprocess
 import re
@@ -32,13 +32,41 @@ from .pin import get_pin
 
 
 class RedactingFormatter(object):
+    """
+    Logging formatter that masks sensitive data like secrets and passwords
+    from logging.
+    patterns = list of secrets to mask (check also hardcoded patterns)
+    mask = string to substitute to secrets
+    """
     def __init__(self, orig_formatter, patterns, mask):
         self.orig_formatter = orig_formatter
         self._patterns = patterns
         self._mask = mask
 
     def format(self, record):
+        """
+        Masked items:
+        - psk password (hardcoded here)
+        - psk "password" (hardcoded here)
+        - passphrase=password
+        - passphrase="password"
+        - all items included in the "patterns" list
+        """
         msg = self.orig_formatter.format(record)
+
+        match = re.search(r'.*[ \t]+psk[ \t]+("?[^" \t\']*").*', msg,
+            flags=re.DOTALL)
+        if match:
+            secret = match.expand("\\1")
+            if secret and not secret in self._patterns:
+                self._patterns.append(secret)
+        match = re.search(r'.*[ \t]+passphrase=("?[^" \t\']*").*', msg,
+            flags=re.DOTALL)
+        if match:
+            secret = match.expand("\\1")
+            if secret and not secret in self._patterns:
+                self._patterns.append(secret)
+
         for pattern in self._patterns:
             msg = msg.replace(pattern, self._mask)
         return msg
@@ -48,6 +76,10 @@ class RedactingFormatter(object):
 
 
 def hide_from_logging(password_list, mask):
+    """
+    Loop to all root log handlers adding a formatter plugin to hide
+    secrets and passwords from logging
+    """
     root = logging.getLogger()
     if root and root.handlers:
         for h in root.handlers:
@@ -59,7 +91,16 @@ def hide_from_logging(password_list, mask):
 
 
 def get_type(value, conf_schema):
+    """
+    Validate a YAML configuration (value) against a YAML schema (conf_schema)
+    Internal rules:
+    - all types include the possibility of <class 'NoneType'>
+    - <class 'float'> includes <class 'int'>
+    - <class 'open_dict'> means dictionary with unvalidated items
+    """
     if isinstance(value, dict):
+        if conf_schema == "<class 'open_dict'>":
+            return conf_schema
         if conf_schema == None: 
             return {key: get_type(value[key], conf_schema) for key in value}
         for key in value:
@@ -68,7 +109,7 @@ def get_type(value, conf_schema):
                     'Configuration Error: unkown parameter "%s" '
                     'in configuration file.', key)
                 return None
-        return {key: get_type(value[key], conf_schema[key]) for key in value}
+        return {key: get_type(value[key], conf_schema[key])}
     else:
         ret_val = "<class 'int'>" if value == None else str(type(value))
         if ret_val == "<class 'int'>" and conf_schema == "<class 'float'>":
@@ -84,6 +125,9 @@ def get_type(value, conf_schema):
 
 
 class HostP2pD:
+    """
+    hostp2pd class
+    """
 
     ################# Start of static configuration ################################
     select_timeout_secs = { # see read_wpa() and find_timing_level
@@ -114,6 +158,7 @@ class HostP2pD:
     run_program = '' # default run_program
     pbc_white_list = [] # default name white list for push button (pbc) enrolment
     network_parms = [] # network parameters when creating a peristent group if none is already defined
+    config_parms = [] # wpa_supplicant configuration parameters
     conf_schema = '''
 %YAML 1.1
 ---
@@ -142,11 +187,15 @@ interface: <class 'str'>
 run_program: <class 'str'>
 pbc_white_list: <class 'list'>
 network_parms: <class 'list'>
+config_parms: <class 'open_dict'>
 '''
     ################# End of static configuration ##################################
 
 
     class THREAD:
+        """
+        Thread states
+        """
         STOPPED = 0
         STARTING = 1
         ACTIVE = 2
@@ -297,7 +346,10 @@ network_parms: <class 'list'>
                     if 'OK' in input_line:
                         logging.debug(
                             '"wpa_supplicant" configuration reloaded.')
+                        self.configure_wpa()
                         break
+                    logging.debug("(reconfigure) PUSH '%s'", input_line)
+                    self.stack.append(input_line)
                 self.threadState = self.THREAD.ACTIVE
             self.do_activation = True
         if successs:
@@ -309,7 +361,9 @@ network_parms: <class 'list'>
         return successs
 
     def reset(self, sleep=0):
-        """ returns all settings to their defaults """
+        """
+        Resets statistics and address registers to their defaults
+        """
         logging.debug(
             "Resetting statistics and sleeping for %s seconds",
             sleep)
@@ -346,6 +400,7 @@ network_parms: <class 'list'>
         self.addr_register = {}
         self.is_daemon = False
         self.last_pwd = None
+        self.stack = []
 
 
     def __init__(
@@ -356,6 +411,9 @@ network_parms: <class 'list'>
             force_logging=force_logging,
             pbc_white_list=pbc_white_list,
             pin=pin):
+        """
+        Class init procedure
+        """
 
         os.umask(0o077) # protect reserved information in logging
         self.logger = logging.getLogger()
@@ -373,6 +431,9 @@ network_parms: <class 'list'>
 
 
     def start_process(self):
+        """
+        Run an external subprocess interconnected via pty, disabling echo
+        """
         # make a new pty
         self.master_fd, self.slave_fd = pty.openpty()
         self.slave_name = os.ttyname(self.slave_fd)
@@ -401,7 +462,9 @@ network_parms: <class 'list'>
 
 
     def __enter__(self):
-        """ Activated when starting the Context Manager"""
+        """
+        Activated when starting the Context Manager
+        """
         if not self.start_process():
             return None
         threading.current_thread().name = "Main"
@@ -414,13 +477,17 @@ network_parms: <class 'list'>
 
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """ Activated when ending the Context Manager"""
+        """
+        Activated when ending the Context Manager
+        """
         self.terminate()
         return False # don't suppress any exception
 
 
     def terminate(self):
-        """ hostp2pd termination procedure """
+        """
+        hostp2pd termination procedure
+        """
         if self.terminate_is_active:
             return False
         self.terminate_is_active = True
@@ -453,7 +520,9 @@ network_parms: <class 'list'>
 
 
     def run_enrol(self, child=False):
-        """ Core starts the Enroller child; child activates itself """
+        """
+        Core starts the Enroller child; child activates itself
+        """
         if not child and self.check_enrol():
             return # Avoid double instance of the Enroller process
         if child: # I am Enroller
@@ -497,7 +566,9 @@ network_parms: <class 'list'>
 
 
     def check_enrol(self):
-        """ Core checks whether Enroller process is active """
+        """
+        Core checks whether Enroller process is active
+        """
         if (self.use_enroller and
                 not self.is_enroller and
                 self.enroller != None and
@@ -508,7 +579,9 @@ network_parms: <class 'list'>
 
 
     def terminate_enrol(self):
-        """ Core terminates active Enroller process """
+        """
+        Core terminates active Enroller process
+        """
         if self.check_enrol():
             enroller = self.enroller
             self.enroller = None
@@ -576,6 +649,7 @@ network_parms: <class 'list'>
         self.threadState = self.THREAD.ACTIVE
 
         """ main loop """
+        self.stack = []
         time.sleep(0.3)
         while self.threadState != self.THREAD.STOPPED:
 
@@ -584,15 +658,26 @@ network_parms: <class 'list'>
                 continue
 
             # get the command and process it
-            self.cmd = self.read_wpa()
+            self.cmd = None
+            while len(self.stack) > 0:
+                self.cmd = self.stack.pop(0)
+                logging.debug(
+                    "(enroller) POP: %s" if self.is_enroller else "POP: %s",
+                    repr(self.cmd))
+                if self.cmd:
+                    break
+            if not self.cmd:
+                self.cmd = None
+            if self.cmd == None:
+                self.cmd = self.read_wpa()
+                logging.debug(
+                    "(enroller) recv: %s" if self.is_enroller else "recv: %s",
+                    repr(self.cmd))
             if self.cmd == None:
                 self.terminate()
                 return
             if self.threadState == self.THREAD.STOPPED:
                 return
-            logging.debug(
-                "(enroller) recv: %s" if self.is_enroller else "recv: %s",
-                repr(self.cmd))
             if not self.handle(self.cmd):
                 self.threadState = self.THREAD.STOPPED
 
@@ -700,6 +785,7 @@ network_parms: <class 'list'>
                     exc_info=True)
             return None # error
 
+
     def rotate_config_method(self):
         if self.pbc_in_use:
             self.write_wpa("p2p_stop_find")
@@ -764,6 +850,7 @@ network_parms: <class 'list'>
         wait_cmd = 0
         cmd_timeout = time.time()
         error = 0
+        can_append = False
         while True:
             input_line = self.read_wpa()
             if input_line == None:
@@ -801,12 +888,21 @@ network_parms: <class 'list'>
                 break
             tokens = input_line.split('-')
             if len(tokens) != 3:
+                if can_append:
+                    logging.debug("(list_or_remove_group) PUSH '%s'",
+                        input_line)
+                    self.stack.append(input_line)
                 continue
             if tokens[0] != 'p2p':
+                if can_append:
+                    logging.debug("(list_or_remove_group) PUSH '%s'",
+                        input_line)
+                    self.stack.append(input_line)
                 continue
             if tokens[2].isnumeric() and not '>' in input_line:
                 monitor_group = input_line
                 if remove:
+                    can_append = True
                     logging.debug(
                         'Removing "%s": %s group %s of interface %s',
                         input_line, tokens[0], tokens[2], tokens[1])
@@ -820,6 +916,10 @@ network_parms: <class 'list'>
                     logging.debug(
                         'Found "%s": %s group %s of interface %s',
                         input_line, tokens[0], tokens[2], tokens[1])
+                continue
+            if can_append:
+                logging.debug("(list_or_remove_group) PUSH '%s'", input_line)
+                self.stack.append(input_line)
         return monitor_group
 
 
@@ -882,7 +982,68 @@ network_parms: <class 'list'>
         return n_stations
 
 
-    def add_network(self):
+    def configure_wpa(self):
+        if len(self.config_parms) == 0:
+            return None
+        logging.debug(
+            'Starting configure_wpa procedure')
+        network_id = None
+        error = 0
+        cmd_timeout = time.time()
+        success = None
+        for parm in self.config_parms:
+            self.write_wpa(
+                "set " + parm + " " +
+                str(self.config_parms[parm]))
+            while True:
+                input_line = self.read_wpa()
+                if input_line == None:
+                    if error > max_num_failures:
+                        logging.critical(
+                            'Internal Error (configure_wpa): '
+                            'read_wpa() abnormally terminated')
+                        self.terminate_enrol()
+                        self.terminate()
+                    logging.error(
+                        'no data (configure_wpa)')
+                    time.sleep(0.5)
+                    error += 1
+                    continue
+                error = 0
+                logging.debug("(configure_wpa) Read '%s'", input_line)
+                if self.warn_on_input_errors(input_line):
+                    continue
+                if time.time() > cmd_timeout + self.min_conn_delay:
+                    logging.error(
+                        'Terminating configure_wpa procedure '
+                        'after timeout of %s seconds.',
+                        self.min_conn_delay)
+                    return False
+                if 'FAIL' in input_line:
+                    logging.error('Cannot set parameter "%s" to "%s".',
+                        parm, self.config_parms[parm])
+                    success = False
+                    break
+                if 'OK' in input_line:
+                    if success == None:
+                        success = True
+                    break
+                logging.debug("(configure_wpa) PUSH '%s'", input_line)
+                self.stack.append(input_line)
+        if success == None:
+            logging.debug(
+                'configure_wpa procedure terminated without updating config.')
+        if success == False:
+            logging.error(
+                'configure_wpa procedure terminated without saving config.')
+        if success:
+            self.write_wpa("save_config")
+            logging.debug(
+                'configure_wpa procedure completed.')
+        return success
+
+
+    def add_network(self, cmd_timeout):
         if len(self.network_parms) == 0:
             return False
         logging.debug(
@@ -890,7 +1051,7 @@ network_parms: <class 'list'>
         network_id = None
         listn = None
         self.write_wpa("add_network")
-        cmd_timeout = time.time()
+        error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
@@ -901,7 +1062,7 @@ network_parms: <class 'list'>
                     self.terminate_enrol()
                     self.terminate()
                 logging.error(
-                    'no data (list_start_pers_group)')
+                    'no data (add_network)')
                 time.sleep(0.5)
                 error += 1
                 continue
@@ -936,10 +1097,14 @@ network_parms: <class 'list'>
                     self.network_parms[listn])
                 listn += 1
                 continue
+            logging.debug("(add_network) PUSH '%s'", input_line)
+            self.stack.append(input_line)
         if listn and network_id:
             self.write_wpa("set_network " + network_id + " mode 3")
             self.write_wpa("set_network " + network_id + " disabled 2")
             self.write_wpa("save_config")
+            logging.debug(
+                'add_network procedure completed.')
             return True
         return False
 
@@ -958,6 +1123,7 @@ network_parms: <class 'list'>
         wait_cmd = 0
         cmd_timeout = time.time()
         error = 0
+        test_add_network = False
         while True:
             input_line = self.read_wpa()
             if input_line == None:
@@ -1016,14 +1182,18 @@ network_parms: <class 'list'>
                     'Terminating list_start_pers_group '
                     'without finding any group. ssid="%s"',
                     ssid)
-                if self.add_network():
-                    self.write_wpa("list_networks")
-                    self.write_wpa("ping")
-                    wait_cmd = 0
-                    cmd_timeout = time.time()
-                    error = 0
-                    continue
-                if (self.activate_persistent_group
+                if test_add_network:
+                    logging.error('Could not add network')
+                else:
+                    test_add_network = True
+                    if start_group and self.add_network(cmd_timeout):
+                        self.write_wpa("list_networks")
+                        self.write_wpa("ping")
+                        wait_cmd = 0
+                        error = 0
+                        continue
+                if (start_group
+                        and self.activate_persistent_group
                         and not self.dynamic_group
                         and not ssid):
                     self.write_wpa("p2p_group_add persistent" +
@@ -1349,6 +1519,16 @@ network_parms: <class 'list'>
             mac_addr = ''
         dev_name = re.sub(r".*name='([^']*).*", r'\1', wpa_cli, 1) # some event have "name="
         p2p_dev_addr = re.sub(r".*p2p_dev_addr=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "p2p_dev_addr="
+        sa_addr = re.sub(r".*sa=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "sa="
+        sa_name = '[unknown]'
+        if sa_addr and sa_addr in self.addr_register:
+            sa_name = self.addr_register[sa_addr]
+        device_name_mac_addr = '[unknown]'
+        if mac_addr and mac_addr in self.addr_register:
+            device_name_mac_addr = self.addr_register[mac_addr]
+        device_name = '[unknown]'
+        if p2p_dev_addr and p2p_dev_addr in self.addr_register:
+            device_name = self.addr_register[p2p_dev_addr]
         pri_dev_type = re.sub(r".*pri_dev_type=([^ ]*).*", r'\1', wpa_cli, 1) # some events have "pri_dev_type="
         ssid_arg = re.sub(r'.*ssid="([^"]*).*', r'\1', wpa_cli, 1) # read ssid="<name>"
         persistent_arg = re.sub(r'.*persistent=([0-9]*).*', r'\1', wpa_cli, 1) # read persistent=number
@@ -1394,6 +1574,8 @@ network_parms: <class 'list'>
         # Startup procedure
         if self.do_activation:
             self.do_activation = False
+            if not self.is_enroller:
+                self.configure_wpa()
             # Initialize self.pbc_in_use
             if self.pbc_in_use == None:
                 self.pbc_in_use = self.get_config_methods(self.pbc_in_use)
@@ -1486,7 +1668,10 @@ network_parms: <class 'list'>
             return True
 
         # <3>RX-PROBE-REQUEST sa=b6:3b:9b:7a:08:96 signal=0
-        if event_name == 'RX-PROBE-REQUEST':
+        if self.is_enroller and event_name == 'RX-PROBE-REQUEST':
+            logging.debug(
+                "(enroller) Received RX-PROBE-REQUEST from '%s' (%s)",
+                sa_addr, sa_name)
             return True
 
         # <3>CTRL-EVENT-SUBNET-STATUS-UPDATE status=0
@@ -1519,16 +1704,16 @@ network_parms: <class 'list'>
         # <3>AP-STA-CONNECTED 56:3b:c6:4a:4a:b3 p2p_dev_addr=56:3b:c6:4a:4a:b3
         if self.is_enroller and event_name == 'AP-STA-CONNECTED':
             logging.debug(
-                "(enroller) Station '%s' CONNECTED to group '%s'",
-                p2p_dev_addr, self.monitor_group)
+                "(enroller) Station '%s' (%s) CONNECTED to group '%s'",
+                p2p_dev_addr, device_name, self.monitor_group)
             self.count_active_sessions()
             return True
 
         # <3>AP-STA-DISCONNECTED 56:3b:c6:4a:4a:b3 p2p_dev_addr=56:3b:c6:4a:4a:b3
         if self.is_enroller and event_name == 'AP-STA-DISCONNECTED':
             logging.debug(
-                "(enroller) Station '%s' DISCONNECTED from group '%s'",
-                p2p_dev_addr, self.monitor_group)
+                "(enroller) Station '%s' (%s) DISCONNECTED from group '%s'",
+                p2p_dev_addr, device_name, self.monitor_group)
             self.count_active_sessions()
             return True
 
@@ -1544,11 +1729,14 @@ network_parms: <class 'list'>
 
         # <3>WPS-ENROLLEE-SEEN 56:3b:c6:4a:4a:b3 811e2280-33d1-5ce8-97e5-6fcf1598c173 10-0050F204-5 0x4388 0 1 [test]
         if event_name == 'WPS-ENROLLEE-SEEN': # only on the GO (Enroller)
-            logging.debug('Found station "%s" with address "%s".',
-                dev_name, mac_addr)
-
-            if self.pbc_in_use and (
-                    self.pbc_white_list == [] or dev_name in self.pbc_white_list):
+            e_device_name = re.sub(r"^\[(.*)\]$", r'\1',
+                " ".join(wpa_cli_word[7:]), 1)
+            self.addr_register[mac_addr] = e_device_name
+            logging.debug(
+                'Enrolling station "%s" with address "%s".',
+                e_device_name, mac_addr)
+            if self.pbc_in_use and (self.pbc_white_list == []
+                    or dev_name in self.pbc_white_list):
                 self.write_wpa("wps_pbc " + mac_addr)
             else:
                 self.last_pwd = self.get_pin(self.pin)
@@ -1704,21 +1892,22 @@ network_parms: <class 'list'>
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
             logging.warning(
-                "Station '%s' CONNECTED to group '%s'",
-                p2p_dev_addr, self.monitor_group)
+                "Station '%s' (%s) CONNECTED to group '%s'",
+                p2p_dev_addr, device_name, self.monitor_group)
             return True
 
         # <3>AP-STA-DISCONNECTED ee:54:44:24:70:df p2p_dev_addr=ee:54:44:24:70:df
         if event_name == 'AP-STA-DISCONNECTED':
-            logging.warning('Station "%s" disconnected.', p2p_dev_addr)
+            logging.warning('Station "%s" (%s) disconnected.',
+                p2p_dev_addr, device_name)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
             return True
 
         # <3>P2P-PROV-DISC-FAILURE p2p_dev_addr=b6:3b:9b:7a:08:96 status=1
         if event_name == 'P2P-PROV-DISC-FAILURE':
-            logging.warning('Provision discovery failed for station "%s".',
-                p2p_dev_addr)
+            logging.warning('Provision discovery failed for station "%s" (%s).',
+                p2p_dev_addr, device_name)
             self.p2p_connect_time = 0
             self.find_timing_level = 'normal'
             if self.dynamic_group and not self.activate_persistent_group:
@@ -1745,8 +1934,10 @@ network_parms: <class 'list'>
                 self.write_wpa("p2p_find")
             return True
 
+        # <3>P2P-DEVICE-LOST p2p_dev_addr=02:87:01:8c:ce:f6
         if event_name == 'P2P-DEVICE-LOST':
-            logging.info('Received P2P-DEVICE-LOST')
+            logging.info('Received P2P-DEVICE-LOST, station "%s" (%s)',
+                p2p_dev_addr, device_name)
             return True
 
         if event_name == 'WPS-TIMEOUT':

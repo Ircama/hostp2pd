@@ -5,7 +5,7 @@
 # wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
 # https://github.com/Ircama/hostp2pd
 # (C) Ircama 2021 - CC-BY-NC-SA-4.0
-#########################################################################
+##########################################################################
 
 import sys
 try:
@@ -110,7 +110,7 @@ class Interpreter(Cmd):
         "(Control-C) can be used."
         print("Terminating...")
         if arg:
-            print ("Invalid format")
+            print("Invalid format")
             return
         sys.exit(0)
 
@@ -124,7 +124,7 @@ class Interpreter(Cmd):
         try:
             delay = 10 if len(arg) == 0 else float(arg.split()[0])
         except ValueError:
-            print ("Invalid format")
+            print("Invalid format")
             return
         print("Sleeping for %s seconds" % delay)
         time.sleep(delay)
@@ -141,7 +141,7 @@ class Interpreter(Cmd):
     def do_color(self, arg):
         "Toggle color off/on."
         if arg:
-            print ("Invalid format")
+            print("Invalid format")
             return
         self.color_active = not self.color_active
         if not self.color_active:
@@ -162,7 +162,7 @@ class Interpreter(Cmd):
     def do_reset(self, arg):
         "Reset hostp2pd statistics"
         if arg:
-            print ("Invalid format")
+            print("Invalid format")
             return
         self.hostp2pd.reset()
         print("Reset done.")
@@ -204,7 +204,7 @@ class Interpreter(Cmd):
     def do_stats(self, arg):
         "Print execution statistics."
         if arg:
-            print ("Invalid format")
+            print("Invalid format")
             return
         format_string = "  {:35s} = {}"
         if self.hostp2pd.addr_register:
@@ -271,7 +271,7 @@ class Interpreter(Cmd):
     def do_pause(self, arg):
         "Pause the execution."
         if arg:
-            print ("Invalid format")
+            print("Invalid format")
             return
         self.hostp2pd.threadState = self.hostp2pd.THREAD.PAUSED
         print("Backend hostp2pd paused")
@@ -279,7 +279,7 @@ class Interpreter(Cmd):
     def do_resume(self, arg):
         "Resume the execution after pausing; prints the used device."
         if arg:
-            print ("Invalid format")
+            print("Invalid format")
             return
         self.hostp2pd.threadState = self.hostp2pd.THREAD.ACTIVE
         print("Backend hostp2pd resumed.")
@@ -293,12 +293,12 @@ class Interpreter(Cmd):
         try:
             n = 20 if len(arg) == 0 else int(arg.split()[0])
         except ValueError:
-            print ("Invalid format")
+            print("Invalid format")
             return
         num=readline.get_current_history_length() - n
         for i in range(num if num > 0 else 0,
                        readline.get_current_history_length()):
-            print (readline.get_history_item(i + 1))
+            print(readline.get_history_item(i + 1))
 
     def is_matched(self, expression):
         opening = tuple('({[')
@@ -381,7 +381,7 @@ class Interpreter(Cmd):
     def default(self, arg):
         hostp2pd = self.hostp2pd # ref. host_lib
         try:
-            print ( eval(arg) )
+            print( eval(arg) )
         except Exception:
             try:
                 exec(arg, globals())

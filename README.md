@@ -164,6 +164,7 @@ persistent_reconnect=1                                  # Allow reconnecting to 
 p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
 country=<country ID>                                    # Use your country code here
 p2p_device_persistent_mac_addr=<mac address>            # Fixed MAC address overcoming MAC Randomization, to be used with persistent group
+p2p_device_random_mac_addr=<mode>                       # MAC address management to create the P2P Device interface
 
 # This is an example of P2P persistent group:
 network={                                               # Network profile
@@ -191,7 +192,7 @@ The optional parameter `ssid_postfix` in the *hostp2pd* configuration file allow
 
 Other parameters (like `freq_list`) can be used.
 
-See below for the usage of `p2p_device_persistent_mac_addr`; some nl80211 device drivers allow `p2p_device_random_mac_addr=1` instead of modifying the *wpa_supplicant* code.
+See below for the usage of `p2p_device_random_mac_addr`; in summary, if the device driver uses persistent MAC addresses by default, this option shall be set to 0 (usage of the default persistent MAC address) or to 1 (usage of random MAC addresses only if a group is not set, otherwise, the MAC address is changed to `p2p_device_persistent_mac_addr`); some 802.11 device drivers do not allow `p2p_device_random_mac_addr=1` and need a modification of the *wpa_supplicant* code to use `p2p_device_random_mac_addr=2`.
 
 The following usage modes of *hostp2pd* are allowed:
 
@@ -571,40 +572,39 @@ A description of the `p2p_device_random_mac_addr` configuration settings obtaine
 
 `p2p_device_random_mac_addr=0`
 
-This is the default option and uses permanent MAC address (the one set by
-default by the device driver). Notice that, if the device driver is configured
-to always use random MAC adresses, this flag breaks reinvoking a persistent
-group, so flags 1 or 2 should be used instead.
+This is the default option and uses the MAC address set by the device driver.
+If the default is a static MAC address, this address is kept unaltered.
+If the device driver is configured by default to always use random MAC adresses,
+this flag breaks reinvoking a persistent group (which needs reusing the same MAC
+address used during the group creation phase), so flags 1 or 2 should be used
+instead.
 
 `p2p_device_random_mac_addr=1`
 
-This option uses random MAC address on creating the interface if there is no
-persistent group. Besides, if a persistent group is created,
-p2p_device_persistent_mac_addr is set to the MAC address of the P2P Device
-interface, so that this address will be subsequently used to change the MAC
-address of the P2P Device interface. With no persistent group, the random MAC
-address is created by wpa_supplicant, changing the one set by the device
-driver. The device driver shall support SIOCGIFFLAGS/SIOCSIFFLAGS ioctl
-interface control operations.
+On creating the interface, if there is no persistent group, this option changes
+the interface MAC address using random numbers computed by wpa_supplicant.
+Besides, if a persistent group is created, p2p_device_persistent_mac_addr is set
+to the MAC address of the P2P Device interface, so that this address will be
+subsequently reused to change the MAC address of the P2P Device interface.
+This option relies on SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control
+operations to change the MAC address, which implies that the device driver shall
+support this mode.
 
 `p2p_device_random_mac_addr=2`
 
-This flag should be used when the device driver uses random MAC addresses by
-default when a P2P Device interface is created. If
-p2p_device_persistent_mac_addr is set, use this MAC address on creating the
-P2P Device interface. If not set, use the default method adopted by the
-device driver (e.g., random MAC address). Besides, if a persistent group is
-created, p2p_device_persistent_mac_addr is set to the MAC address of the P2P
-Device interface, so that this address will be subsequently used in place of
-the default address set by the device driver. (This option does not need
-support of SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations and
-uses NL80211_ATTR_MAC).
+This flag should be used when the device driver uses internally generated random
+MAC addresses by default when a P2P Device interface is created. If
+p2p_device_persistent_mac_addr is set, this MAC address is used on creating the
+P2P Device interface (in place of the one produced by the device driver).
+If not set, the default method adopted by the device driver (e.g., random
+MAC address) is used. Besides, if a persistent group is created,
+p2p_device_persistent_mac_addr is set to the MAC address of the P2P Device
+interface, so that this address will be subsequently used in place of the
+default address set by the device driver. (This option does not need
+support of SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations to
+change the MAC address and uses the NL80211_ATTR_MAC attribute).
 
 Notice that the default (unpatched) *wpa_supplicant* code manages `p2p_device_random_mac_addr=2` the same as `p2p_device_random_mac_addr=1`. So, if returning back to the original code and if the device driver does not support SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations to change the MAC address, also remove *p2p_device_random_mac_addr* or set it to 0.
-
-# License
-
-(C) Ircama 2021 - [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 _______________
 
@@ -617,7 +617,8 @@ __Notes__
 
 Check that the Android device supports both 2.4 GHz and 5 GHz bands: *wpa_supplicant* might have used a 5 GHz channel for the P2P-GO group, which will not be received by an Android device only supporting the 2.4 GHz band.
 
-To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `  p2p_group_add_opts: freq=2` in *hostp2pd.yaml*. Anyway, on some devices (Raspberry Pi) after some time the band might be autonomously moved to the 5 GHz band (by the wireless device driver).
+To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `p2p_group_add_opts: freq=2` in *hostp2pd.yaml*. Anyway, on some devices (Raspberry Pi) after some time the band might be autonomously moved to the 5 GHz band (by the wireless device driver); in such cases, the only possible method to force the permanent usage of 2.4 GHz band is by setting a [country code](https://en.wikipedia.org/wiki/List_of_WLAN_channels) that denies the allocation of 5 GHz frequencies according to the related regulatory domain; for instance, depending on the device driver setup, adding `country=RU` to the *wpa_supplicant* configuration file should only allow Wi-Fi channels 1 to 13.
+
 
 ## wpa_cli does not connect to wpa_supplicant
 
@@ -663,3 +664,10 @@ sudo /sbin/wpa_supplicant -c/etc/wpa_supplicant/wpa_supplicant-wlan0.conf -Dnl80
 ```
 
 There is a relevant blog with [in-depth notes on Wi-Fi Direct](https://praneethwifi.in/).
+
+_______________
+
+# License
+=========
+
+(C) Ircama 2021 - [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

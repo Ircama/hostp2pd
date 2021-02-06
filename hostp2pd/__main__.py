@@ -5,7 +5,7 @@
 # wpa_cli controller of Wi-Fi Direct connections handled by wpa_supplicant
 # https://github.com/Ircama/hostp2pd
 # (C) Ircama 2021 - CC-BY-NC-SA-4.0
-#########################################################################
+##########################################################################
 
 import sys
 try:
