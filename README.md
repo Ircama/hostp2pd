@@ -516,9 +516,9 @@ MAC randomization prevents listeners from using MAC addresses to build a history
 Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart: if a device supports MAC Randomization, restarting *wpa_supplicant* will change the local MAC address of the related virtual interface; a persistent group reinvoked with different MAC address denies the reuse of the saved group in the peer system.
 [This appears to be appropriately managed by Android devices](https://source.android.com/devices/tech/connect/wifi-direct#mac_randomization).
 
-A configuration strategy that appears to prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, the latest *wpa_supplicant* version might be needed, which exploits the usage of the `p2p_device_persistent_mac_addr` parameter with option `p2p_device_random_mac_addr=2`. `update_config=1` is required.
+A configuration strategy that appears to prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, the latest *wpa_supplicant* version might be needed, which [includes another patch](http://w1.fi/cgit/hostap/commit/?id=e79febb3f5b516f4027fba0a8a35be359c38cf9f) exploiting the usage of the `p2p_device_persistent_mac_addr` parameter with option `p2p_device_random_mac_addr=2`. Notice that also `update_config=1` is required.
 
-To download *wpa_supplicant* sources, prepare the environment on Ubuntu, compile the code and install, do the following:
+The following commands allow downloading the latest version of the *wpa_supplicant* sources, preparing the environment on Ubuntu, compiling the code and installing:
 
 ```bash
 sudo apt-get update
