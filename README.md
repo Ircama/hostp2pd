@@ -295,7 +295,8 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
 *hostp2pd* has been tested with:
 
-- UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster); the recompiled code to overcome the [MAC randomization issue with persistent groups](#mac-randomization) is based on *wpa_supplicant* version [v2.10-devel-hostap_2_9-1798-g581dfcc41+.](http://w1.fi/cgit/hostap).
+- UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster);
+- the latest [*wpa_supplicant* development version](http://w1.fi/cgit/hostap), to take advantage of *p2p_device_random_mac_addr* to overcome the [MAC randomization issue with persistent groups](#mac-randomization).
 - Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 is not supported.
 - P2P Clients including Android 11, Android 10, Android 9, Android 8 and Android 7 smartphones.
 
@@ -515,11 +516,9 @@ MAC randomization prevents listeners from using MAC addresses to build a history
 Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart: if a device supports MAC Randomization, restarting *wpa_supplicant* will change the local MAC address of the related virtual interface; a persistent group reinvoked with different MAC address denies the reuse of the saved group in the peer system.
 [This appears to be appropriately managed by Android devices](https://source.android.com/devices/tech/connect/wifi-direct#mac_randomization).
 
-The only configuration strategy that at the moment appears to already prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, a modification of the current version of *wpa_supplicant* might be needed.
+A configuration strategy that appears to prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, the latest *wpa_supplicant* version might be needed, which exploits the usage of the `p2p_device_persistent_mac_addr` parameter with option `p2p_device_random_mac_addr=2`. `update_config=1` is required.
 
-The following is a workaround that implies modifying *wpa_supplicant* sources and recompiling them; it exploits the usage of `p2p_device_persistent_mac_addr` with `p2p_device_random_mac_addr=2`. `update_config=1` is required.
-
-To download *wpa_supplicant* sources and prepare the environment on Ubuntu:
+To download *wpa_supplicant* sources, prepare the environment on Ubuntu, compile the code and install, do the following:
 
 ```bash
 sudo apt-get update
@@ -531,25 +530,9 @@ sudo apt-get install -y libssl-dev
 git clone git://w1.fi/srv/git/hostap.git
 cd hostap
 cp wpa_supplicant/defconfig wpa_supplicant/.config
-```
-
-Copy [p2p_device_random_mac_addr-2.patch](p2p_device_random_mac_addr-2.patch) from this repository to the *hostap* directory. Then apply the patch:
-
-```bash
-wget https://raw.githubusercontent.com/Ircama/hostp2pd/master/p2p_device_random_mac_addr-2.patch
-git apply -v p2p_device_random_mac_addr-2.patch
-```
-
-You can recompile with the following commands:
-
-```bash
 cd wpa_supplicant
 make -j$(($(nproc)+1))
-```
 
-To ensure usage of the same static MAC address with the P2P-Device virtual interface, you can use the created *wpa_supplicant* in place of the existing one:
-
-```bash
 # Example of installation:
 sudo mv /sbin/wpa_supplicant /sbin/wpa_supplicant-org
 sudo systemctl stop dhcpcd # in case wpa_supplicant is managed by dhcpcd
@@ -604,7 +587,7 @@ default address set by the device driver. (This option does not need
 support of SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations to
 change the MAC address and uses the NL80211_ATTR_MAC attribute).
 
-Notice that the default (unpatched) *wpa_supplicant* code manages `p2p_device_random_mac_addr=2` the same as `p2p_device_random_mac_addr=1`. So, if returning back to the original code and if the device driver does not support SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations to change the MAC address, also remove *p2p_device_random_mac_addr* or set it to 0.
+Notice that the default *wpa_supplicant* code manages `p2p_device_random_mac_addr=2` the same as `p2p_device_random_mac_addr=1`. So, if returning back to the original code and if the device driver does not support SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations to change the MAC address, also remove *p2p_device_random_mac_addr* or set it to 0.
 
 _______________
 
