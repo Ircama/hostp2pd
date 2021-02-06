@@ -49,9 +49,7 @@ class Interpreter(Cmd):
     __hiden_methods = ("do_EOF",)
     rlc = rlcompleter.Completer().complete
     histfile = os.path.expanduser("~/.hostp2pd_mgr_history")
-    host_lib = (
-        "hostp2pd"  # must be declared in default(), completedefault(), completenames()
-    )
+    host_lib = "hostp2pd"  # must be declared in default(), completedefault(), completenames()
     histfile_size = 1000
 
     def __init__(self, hostp2pd, args):
@@ -112,7 +110,8 @@ class Interpreter(Cmd):
         sys.exit(0)
 
     def do_quit(self, arg):
-        "Quit hostp2pd. Also Control-D or interrupt \n" "(Control-C) can be used."
+        "Quit hostp2pd. Also Control-D or interrupt \n"
+        "(Control-C) can be used."
         print("Terminating...")
         if arg:
             print("Invalid format")
@@ -124,7 +123,8 @@ class Interpreter(Cmd):
         print(f"hostp2pd version {__version__}.")
 
     def do_wait(self, arg):
-        "Perform an immediate sleep of the seconds specified in the argument.\n" "(Floating point number; default is 10 seconds.)"
+        "Perform an immediate sleep of the seconds specified in the argument.\n"
+        "(Floating point number; default is 10 seconds.)"
         try:
             delay = 10 if len(arg) == 0 else float(arg.split()[0])
         except ValueError:
@@ -172,16 +172,21 @@ class Interpreter(Cmd):
         print("Reset done.")
 
     def do_loglevel(self, arg):
-        "If an argument is given, set the logging level,\n" "otherwise show the current one.\n" "CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10."
+        "If an argument is given, set the logging level,\n"
+        "otherwise show the current one.\n"
+        "CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10."
         conf_file = self.hostp2pd.config_file
         if arg and arg.isnumeric():
             hostp2pd.logger.setLevel(int(arg))
             print("Logging level set to", hostp2pd.logger.getEffectiveLevel())
         else:
-            print("Current logging level:", hostp2pd.logger.getEffectiveLevel())
+            print(
+                "Current logging level:", hostp2pd.logger.getEffectiveLevel())
 
     def do_reload(self, arg):
-        "Reload configuration from the latest valid configuration file.\n" "Optional argument is a new configuration file; to load defaults\n" "use 'reset' as argument."
+        "Reload configuration from the latest valid configuration file.\n"
+        "Optional argument is a new configuration file; to load defaults\n"
+        "use 'reset' as argument."
         conf_file = self.hostp2pd.config_file
         if arg:
             if self.hostp2pd.read_configuration(
@@ -193,9 +198,11 @@ class Interpreter(Cmd):
                 self.hostp2pd.config_file = conf_file
         else:
             if self.hostp2pd.read_configuration(
-                configuration_file=self.hostp2pd.config_file, do_activation=True
+                configuration_file=self.hostp2pd.config_file,
+                do_activation=True
             ):
-                print("Reloaded configuration file", self.hostp2pd.config_file)
+                print(
+                    "Reloaded configuration file", self.hostp2pd.config_file)
             else:
                 print(
                     "Errors while reloading configuration from file",
@@ -222,20 +229,27 @@ class Interpreter(Cmd):
         else:
             print("No statistics available.")
         print("Internal parameters:")
-        print(format_string.format("Configuration file", self.hostp2pd.config_file))
+        print(
+            format_string.format("Configuration file",
+                self.hostp2pd.config_file)
+        )
         print(format_string.format("Interface name", self.hostp2pd.interface))
         print(
             format_string.format(
                 "SSID persistent/autonomous group", self.hostp2pd.ssid_group
             )
         )
-        print(format_string.format("Active group", self.hostp2pd.monitor_group))
+        print(format_string.format("Active group",
+            self.hostp2pd.monitor_group))
         print(
-            format_string.format("Group formation technique", self.hostp2pd.group_type)
+            format_string.format(
+                "Group formation technique", self.hostp2pd.group_type
+            )
         )
         print(
             format_string.format(
-                "Persistent group number (net id)", self.hostp2pd.persistent_network_id
+                "Persistent group number (net id)",
+                self.hostp2pd.persistent_network_id,
             )
         )
         print(
@@ -257,27 +271,44 @@ class Interpreter(Cmd):
         print(format_string.format("Pbc is in use", self.hostp2pd.pbc_in_use))
         print(
             format_string.format(
-                "Configuration method in use", self.hostp2pd.config_method_in_use
+                "Configuration method in use",
+                self.hostp2pd.config_method_in_use
             )
         )
-        print(format_string.format("p2p_connect_time", self.hostp2pd.p2p_connect_time))
         print(
-            format_string.format("find_timing_level", self.hostp2pd.find_timing_level)
+            format_string.format(
+                "p2p_connect_time", self.hostp2pd.p2p_connect_time
+            )
         )
-        print(format_string.format("Logging level", self.hostp2pd.logger.level))
-        print(format_string.format("Number of failures", self.hostp2pd.num_failures))
-        print(format_string.format("Stored station name", self.hostp2pd.station))
+        print(
+            format_string.format(
+                "find_timing_level", self.hostp2pd.find_timing_level
+            )
+        )
+        print(format_string.format("Logging level",
+            self.hostp2pd.logger.level))
+        print(
+            format_string.format(
+                "Number of failures", self.hostp2pd.num_failures
+            )
+        )
+        print(format_string.format("Stored station name",
+            self.hostp2pd.station))
         print(
             format_string.format(
                 "wpa_supplicant errors", self.hostp2pd.wpa_supplicant_errors
             )
         )
         print(
-            format_string.format("Number of scan pollings", self.hostp2pd.scan_polling)
+            format_string.format(
+                "Number of scan pollings", self.hostp2pd.scan_polling
+            )
         )
         try:
             print(
-                format_string.format("wpa_cli process Pid", self.hostp2pd.process.pid)
+                format_string.format(
+                    "wpa_cli process Pid", self.hostp2pd.process.pid
+                )
             )
         except:
             print("  Error: wpa_cli process ID not existing!")
@@ -307,7 +338,8 @@ class Interpreter(Cmd):
         print("Backend hostp2pd resumed.")
 
     def do_history(self, arg):
-        "Print the command history; if an argument is given, print the last\n" "n commands in the history; with argument 'clear', clears the history"
+        "Print the command history; if an argument is given, print the last\n"
+        "n commands in the history; with argument 'clear', clears the history"
         if arg == "clear":
             readline.clear_history()
             return
@@ -317,7 +349,9 @@ class Interpreter(Cmd):
             print("Invalid format")
             return
         num = readline.get_current_history_length() - n
-        for i in range(num if num > 0 else 0, readline.get_current_history_length()):
+        for i in range(
+            num if num > 0 else 0, readline.get_current_history_length()
+        ):
             print(readline.get_history_item(i + 1))
 
     def is_matched(self, expression):
@@ -391,13 +425,18 @@ class Interpreter(Cmd):
         )
 
     def preloop(self):
-        if readline and os.path.exists(self.histfile) and not self.args.batch_mode:
+        if (
+            readline
+            and os.path.exists(self.histfile)
+            and not self.args.batch_mode
+        ):
             try:
                 readline.read_history_file(self.histfile)
             except FileNotFoundError:
                 pass
             except PermissionError:
-                print("No permissions to access the command line history file.")
+                print(
+                    "No permissions to access the command line history file.")
                 pass
 
     def postloop(self):
@@ -550,7 +589,10 @@ def main():
 
     if os.getuid() == 0:
         daemon_pid_fname = (
-            DAEMON_PIDFILE_DIR_ROOT + DAEMON_PIDFILE_BASE + args.interface[0] + ".pid"
+            DAEMON_PIDFILE_DIR_ROOT
+            + DAEMON_PIDFILE_BASE
+            + args.interface[0]
+            + ".pid"
         )
     else:
         daemon_pid_fname = (
@@ -586,18 +628,23 @@ def main():
                 Ret = os.kill(pid, signal.SIGHUP)
             except Exception as e:
                 print(
-                    f"Error while reloading configuration file for daemon process {pid}: {e}."
+                    f"Error while reloading configuration file "
+                    f"for daemon process {pid}: {e}."
                 )
                 sys.exit(1)
             if Ret:
                 print(
-                    f"Error while reloading configuration file for daemon process {pid}."
+                    f"Error while reloading configuration file "
+                    f"for daemon process {pid}."
                 )
                 sys.exit(1)
             else:
                 sys.exit(0)
         else:
-            print("Cannot reload the configuration of the daemon process: not running.")
+            print(
+                "Cannot reload the configuration of the daemon process: "
+                "not running."
+            )
             sys.exit(0)
 
     if args.daemon_mode and not args.batch_mode:
@@ -673,7 +720,8 @@ def main():
                     time.sleep(0.1)
                 if not args.batch_mode:
                     logging.info(
-                        f"\n\nhostp2pd (v{__version__}) started in interactive mode.\n"
+                        f"\n\nhostp2pd (v{__version__}) "
+                        "started in interactive mode.\n"
                     )
                 sys.stdout.flush()
                 w_p2p_interpreter = Interpreter(hostp2pd, args)
@@ -683,7 +731,8 @@ def main():
                     )
                 else:
                     w_p2p_interpreter.cmdloop_with_keyboard_interrupt(
-                        "Welcome to hostp2pd - The Wi-Fi Direct Session Manager.\n"
+                        "Welcome to hostp2pd - "
+                        "The Wi-Fi Direct Session Manager.\n"
                         "https://github.com/Ircama/hostp2pd\n"
                         "hostp2pd is running in interactive mode.\n"
                         "Type help or ? to list commands.\n"
