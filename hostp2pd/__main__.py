@@ -8,6 +8,7 @@
 ##########################################################################
 
 import sys
+
 try:
     from .interpreter import main
 except (ImportError, ValueError):

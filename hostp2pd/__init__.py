@@ -9,10 +9,12 @@
 
 from __future__ import print_function
 import sys
+
 if sys.hexversion < 0x3050000:
-    print("hostp2pd error: Python version must be >= 3.5."
-          " Current version: " + ".".join(
-              map(str, sys.version_info[:3])) + ".")
+    print(
+        "hostp2pd error: Python version must be >= 3.5."
+        " Current version: " + ".".join(map(str, sys.version_info[:3])) + "."
+    )
     sys.exit(1)
 
 from .hostp2pd import HostP2pD
