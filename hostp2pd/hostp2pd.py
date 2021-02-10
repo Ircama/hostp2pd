@@ -345,7 +345,7 @@ config_parms: <class 'open_dict'>
                 while True:  # Wait 'OK' before continuing
                     input_line = self.read_wpa()
                     if input_line == None:
-                        if error > max_num_failures:
+                        if error > self.max_num_failures:
                             logging.error(
                                 "Internal Error (read_configuration): "
                                 "read_wpa() abnormally terminated"
@@ -912,7 +912,7 @@ config_parms: <class 'open_dict'>
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (list_or_remove_group): "
                         "read_wpa() abnormally terminated"
@@ -1010,7 +1010,7 @@ config_parms: <class 'open_dict'>
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (count_active_sessions): "
                         "read_wpa() abnormally terminated"
@@ -1071,7 +1071,7 @@ config_parms: <class 'open_dict'>
             while True:
                 input_line = self.read_wpa()
                 if input_line == None:
-                    if error > max_num_failures:
+                    if error > self.max_num_failures:
                         logging.critical(
                             "Internal Error (configure_wpa): "
                             "read_wpa() abnormally terminated"
@@ -1127,11 +1127,12 @@ config_parms: <class 'open_dict'>
         network_id = None
         listn = None
         self.write_wpa("add_network")
+        can_append = False
         error = 0
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (add_network): "
                         "read_wpa() abnormally terminated"
@@ -1160,6 +1161,7 @@ config_parms: <class 'open_dict'>
                     network_id = tokens[0]
                     listn = 0
                     input_line = "OK"
+                    can_append = True
             if "FAIL" in input_line:
                 logging.error("Cannot add network.")
                 listn = None
@@ -1179,12 +1181,14 @@ config_parms: <class 'open_dict'>
                 )
                 listn += 1
                 continue
-            logging.debug("(add_network) PUSH '%s'", input_line)
-            self.stack.append(input_line)
+            if can_append:
+                logging.debug("(add_network) PUSH '%s'", input_line)
+                self.stack.append(input_line)
         if listn and network_id:
             self.write_wpa("set_network " + network_id + " mode 3")
             self.write_wpa("set_network " + network_id + " disabled 2")
             self.write_wpa("save_config")
+            self.persistent_network_id = None
             logging.debug("add_network procedure completed.")
             return True
         return False
@@ -1208,7 +1212,7 @@ config_parms: <class 'open_dict'>
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (list_start_pers_group): "
                         "read_wpa() abnormally terminated"
@@ -1317,8 +1321,7 @@ config_parms: <class 'open_dict'>
                 ):
                     logging.debug(
                         "Skipping persistent group "
-                        '"%s" with network ID %s, different'
-                        " from %s",
+                        '"%s" with network ID %s, different from %s"',
                         tokens[1],
                         tokens[0],
                         self.persistent_network_id,
@@ -1378,7 +1381,7 @@ config_parms: <class 'open_dict'>
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (analyze_existing_group): "
                         "read_wpa() abnormally terminated"
@@ -1435,7 +1438,7 @@ config_parms: <class 'open_dict'>
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (get_config_methods): "
                         "read_wpa() abnormally terminated"
@@ -1562,7 +1565,7 @@ config_parms: <class 'open_dict'>
         while True:
             input_line = self.read_wpa()
             if input_line == None:
-                if error > max_num_failures:
+                if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (in_process_enrol): "
                         "read_wpa() abnormally terminated"

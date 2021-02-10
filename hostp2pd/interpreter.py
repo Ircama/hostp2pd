@@ -177,11 +177,13 @@ class Interpreter(Cmd):
         "CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10."
         conf_file = self.hostp2pd.config_file
         if arg and arg.isnumeric():
-            hostp2pd.logger.setLevel(int(arg))
-            print("Logging level set to", hostp2pd.logger.getEffectiveLevel())
+            self.hostp2pd.logger.setLevel(int(arg))
+            print("Logging level set to",
+                self.hostp2pd.logger.getEffectiveLevel())
         else:
             print(
-                "Current logging level:", hostp2pd.logger.getEffectiveLevel())
+                "Current logging level:",
+                    self.hostp2pd.logger.getEffectiveLevel())
 
     def do_reload(self, arg):
         "Reload configuration from the latest valid configuration file.\n"

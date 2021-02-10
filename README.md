@@ -68,6 +68,8 @@ hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
   eof
   ```
 
+In this documentation, the UNIX system is where *hostp2pd* is installed and run, generally acting as P2P-GO. The P2P device is generally an Android smartphone (or another Linux/Windows system).
+
 To start a Wi-Fi Direct connection of an Android smartphone and connect a UNIX system running *hostp2pd*, tap Settings > Wi-Fi > Advanced settings > Wi-Fi Direct and wait for the peer UNIX device to appear. Select it, optionally type the PIN and wait for connection established. If the default configuration is used, which exploits a predefined persistent group, any subsequent reconnection to this group is done without repeating the WPS authorization process. As previously explained, through this process the mobile/cellular connection is not disabled while the Wi-Fi Direct connection is active.
 
 Depending on the capabilities of the wlan device driver, the AP virtual interface has to be stopped before creating a P2P-GO group. As already mentioned, a persistent P2P-GO group can provide AP capabilities together with the Wi-Fi Direct functionalities.
@@ -157,9 +159,9 @@ ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev # This allows using wpa_
 update_config=1                                         # This allows wpa_supplicant to update the wpa_supplicant.conf configuration file
 device_name=DIRECT-test                                 # This is the P2P name shown to the Android phones while connecting via Wi-Fi Direct;
                                                         # Use any name in place of "test" and keep the "DIRECT-" prefix.
-device_type=6-0050F204-1                                # (Network Infrastructure / AP)
+device_type=6-0050F204-1                                # (Optional: Microsoft wireless device, Network Infrastructure, AP)
 config_methods=keypad                                   # "keypad" uses a fixed PIN on UNIX, which is asked from a keypad popped up on the Android devices
-p2p_go_intent=15                                        # Force UNIX to become a P2P-GO (Group Owner)
+p2p_go_intent=15                                        # Optional, only to be used in case of negotiation. Force UNIX to become a P2P-GO (Group Owner)
 persistent_reconnect=1                                  # Allow reconnecting to a persistent group without user acknowledgement
 p2p_go_ht40=1                                           # Optional: use HT40 channel bandwidth (300 Mbps) when operating as GO (instead of 144.5Mbps).
 country=<country ID>                                    # Use your country code here
@@ -188,6 +190,19 @@ The above example shows how to predefine a P2P persistent group. Specifically, t
 
 If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* asks *wpa_supplicant* to create a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
 
+If *update_config* is set to 1, the configuration file is automatically updated by *wpa_supplicant* in the following cases:
+
+- a new network block is added
+- a password is changed
+- a P2P group is created
+
+Notice that, whenever the configuration file is automatically updated
+
+- all comments are stripped,
+- all parameters set to default values are removed from the configuration file.
+
+The *p2p_go_intent* parameter is a number between 0 and 15 which controls the default group owner intent: higher numbers indicate preference to become the GO. It is not needed in case of autonomous or persistent groups (in these cases the UNIX system is always a GO) and it is used only when the GO role is negotiated.
+
 The optional parameter `ssid_postfix` in the *hostp2pd* configuration file allows adding a fixed postfix string to the SSID whenever a group is created by *wpa_supplicant*  (the form `DIRECT-<random two octets>-<ssid_postfix string>` is used).
 
 Other parameters (like `freq_list`) can be used.
@@ -211,6 +226,67 @@ stats
 wait 60
 stats
 eof
+```
+
+## Device Identification Parameters
+
+The *wpa_supplicant* configuration file allows to include optional parameters identifying the UNIX system when presenting itself on the network.
+
+*device_type* represents the primary device type with information of category, sub-category, and a manufacturer specific [OUI (Organization ID)](https://en.wikipedia.org/wiki/Organizationally_unique_identifier).
+
+Examples from the [hostapd.conf manual](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf):
+
+```
+# Primary Device Type
+# Used format: <categ>-<OUI>-<subcateg>
+# categ = Category as an integer value
+# OUI = OUI and type octet as a 4-octet hex-encoded value; 0050F204 for
+#       default WPS OUI
+# subcateg = OUI-specific Sub Category as an integer value
+# Examples:
+#   1-0050F204-1 (Computer / PC)
+#   1-0050F204-2 (Computer / Server)
+#   5-0050F204-1 (Storage / NAS)
+#   6-0050F204-1 (Network Infrastructure / AP)
+device_type=6-0050F204-1
+```
+
+The OUI identifies a product from a specific company and is basically the first three octets of a MAC address.
+
+Explanation of `device_type=6-0050F204-1` [as documented by Microsoft](https://docs.microsoft.com/en-us/windows/win32/api/wcntypes/ns-wcntypes-wcn_value_type_primary_device_type):
+
+- 6 means CATEGORY_NETWORK_INFRASTRUCTURE
+- the 0050F204 CDI-32 OUI is a Vendor­Specific IE referred to Microsoft (00:50:f2), with subtype 4 (wireless device).
+- 1 means SUBTYPE_NETWORK_INFRASTRUCUTURE_AP
+
+Explanation of `device_type=1-0050F204-1` (or `-2` in place of `-1`):
+
+- 1 means CATEGORY_COMPUTER
+- 0050F204 means Microsoft (00:50:f2), with subtype 4 (wireless device)
+- 1 means SUBTYPE_COMPUTER_PC, 2 means SUBTYPE_COMPUTER_SERVER  
+
+Other possible elements that can be declared in *wpa_supplicant.conf*:
+
+```
+# Manufacturer
+# The manufacturer of the device (up to 64 ASCII characters)
+manufacturer=my_manufacturer_name
+
+# Model Name
+# Model of the device (up to 32 ASCII characters)
+model_name=my_model_name
+
+# Model Number
+# Additional device description (up to 32 ASCII characters)
+model_number=my_model_number
+
+# Serial Number
+# Serial number of the device (up to 32 characters)
+serial_number=12345
+
+# OS Version
+# 4-octet operating system version number (hex string)
+os_version=01020300
 ```
 
 ## hostp2pd.yaml
