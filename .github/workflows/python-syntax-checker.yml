@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # version range and latest minor release
-        python-version: [3.5, 3.6, 3.7, 3.8, '3.x']
+        # version range and latest minor release (possibly 3.9.1)
+        python-version: [3.6, 3.7, 3.8, '3.x']
 
     steps:
     - uses: actions/checkout@v2

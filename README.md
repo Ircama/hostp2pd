@@ -19,7 +19,7 @@ Apple iOS devices do not support Wi-Fi Direct, but can concurrently connect to a
 
 # Installation
 
-Check that the Python version is 3.5 or higher (`python3 -V`), then install *hostp2pd* with the following command:
+Check that the Python version is 3.6 or higher (`python3 -V`), then install *hostp2pd* with the following command:
 
 ```shell
 python3 -m pip install hostp2pd
