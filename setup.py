@@ -12,7 +12,6 @@ import re
 import os
 
 import json
-import sys
 from urllib import request
 from pkg_resources import parse_version
 
