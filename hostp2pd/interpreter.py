@@ -10,8 +10,8 @@
 import sys
 
 try:
-    if sys.hexversion < 0x3050000:
-        raise ImportError("Python version must be >= 3.5")
+    if sys.hexversion < 0x3060000:
+        raise ImportError("Python version must be >= 3.6")
     import threading
     import logging
     from .hostp2pd import HostP2pD
