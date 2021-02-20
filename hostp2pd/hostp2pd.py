@@ -60,14 +60,14 @@ class RedactingFormatter(object):
         )
         if match:
             secret = match.expand("\\1")
-            if secret and not secret in self._patterns:
+            if secret and secret not in self._patterns:
                 self._patterns.append(secret)
         match = re.search(
             r'.*[ \t]+passphrase=("?[^" \t\']*").*', msg, flags=re.DOTALL
         )
         if match:
             secret = match.expand("\\1")
-            if secret and not secret in self._patterns:
+            if secret and secret not in self._patterns:
                 self._patterns.append(secret)
 
         for pattern in self._patterns:
@@ -116,7 +116,7 @@ def get_type(value, conf_schema):
                 return None
         return {key: get_type(value[key], conf_schema[key])}
     else:
-        ret_val = "<class 'int'>" if value == None else str(type(value))
+        ret_val = "<class 'int'>" if value is None else str(type(value))
         if ret_val == "<class 'int'>" and conf_schema == "<class 'float'>":
             ret_val = conf_schema
         if ret_val == "<class 'NoneType'>":
