@@ -262,9 +262,7 @@ The *wpa_supplicant* configuration file allows to include optional parameters id
 
 Used format from the [hostapd.conf manual](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) related to the *Primary Device Type* parameter:
 
-```
-<categ>-<OUI>-<subcateg>
-```
+*categ*-*OUI*-*subcateg*
 
 - categ = Category as an integer value: "Category ID" defined in the Annex B format of the WiFi Direct specification.
 - OUI = A four-byte subdivided "OUI and type" field, consisting of a 4-octet hex-encoded value which identifies a product from a specific company and is basically the first three octets of a MAC address with the addition of a type subfield. [As documented by Microsoft](https://docs.microsoft.com/en-us/windows/win32/api/wcntypes/ns-wcntypes-wcn_value_type_primary_device_type), the 0050F204 CDI-32 OUI is a Vendor­Specific IE referred to Microsoft (00:50:f2), with subtype 4 (wireless device). Anyway, as reported in the Wi-Fi Peer-to-Peer (P2P) Technical Specification, 0050F204 is the predefined value for a default OUI for a generic vendor.
@@ -286,13 +284,13 @@ The *Primary Device Type* parameter is for instance used to identify the device 
 
 Suggested device type for *hostp2pd*:
 
-```
+```ini
 device_type=6-0050F204-1
 ```
 
 Other possible elements that can be declared in *wpa_supplicant.conf*:
 
-```
+```ini
 # Manufacturer
 # The manufacturer of the device (up to 64 ASCII characters)
 manufacturer=my_manufacturer_name
@@ -582,7 +580,7 @@ Currently, there seem to be two possibilities to interface *wpa_supplicant* on P
 
 *wpa_supplicant* also allows the [dbus interface](https://w1.fi/wpa_supplicant/devel/dbus.html) when *wpa_supplicant* is run with the `-u` option; anyway, with the current *wpa_supplicant* version (v2.8-devel), the internal P2P objects do not seem to be registered to the *dbus* interface, so a Python request like the following one fails with message `dbus.exceptions.DBusException: fi.w1.wpa_supplicant1.InterfaceUnknown: wpa_supplicant knows nothing about this interface..`:
 
-```python
+```bash
 python3 -c 'import dbus;\
 dbus.Interface(dbus.SystemBus().get_object("fi.w1.wpa_supplicant1",\
 "/fi/w1/wpa_supplicant1"), "fi.w1.wpa_supplicant1")\
@@ -655,7 +653,9 @@ p2p_device_random_mac_addr=2
 
 A description of the `p2p_device_random_mac_addr` configuration settings obtained with this patch follows.
 
-`p2p_device_random_mac_addr=0`
+```ini
+p2p_device_random_mac_addr=0
+```
 
 This is the default option and uses the MAC address set by the device driver.
 If the default is a static MAC address, this address is kept unaltered.
@@ -664,7 +664,9 @@ this flag breaks reinvoking a persistent group (which needs reusing the same MAC
 address used during the group creation phase), so flags 1 or 2 should be used
 instead.
 
-`p2p_device_random_mac_addr=1`
+```ini
+p2p_device_random_mac_addr=1
+```
 
 On creating the interface, if there is no persistent group, this option changes
 the interface MAC address using random numbers computed by wpa_supplicant.
@@ -675,7 +677,9 @@ This option relies on SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control
 operations to change the MAC address, which implies that the device driver shall
 support this mode.
 
-`p2p_device_random_mac_addr=2`
+```ini
+p2p_device_random_mac_addr=2
+```
 
 This flag should be used when the device driver uses internally generated random
 MAC addresses by default when a P2P Device interface is created. If
