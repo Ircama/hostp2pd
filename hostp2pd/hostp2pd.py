@@ -138,12 +138,102 @@ class HostP2pD:
     """
 
     ################# Start of static configuration ################################
+    p2p_primary_device_type = {
+        # From Wi-Fi Peer-to-Peer (P2P) Technical Specification,
+        #   Annex B P2P Specific WSC IE Attributes,
+        #   B.2 Primary Device Type,
+        #   Table B1—Predefined values for Category ID and Sub Category ID,
+        #   assuming that the Wi-Fi Alliance OUI will always be 00 50 F2 04.
+        '1-0050F204-1': 'Computer PC',
+        '1-0050F204-2': 'Computer Server',
+        '1-0050F204-3': 'Media Center',
+        '1-0050F204-4': 'Ultra-mobile PC',
+        '1-0050F204-5': 'Notebook',
+        '1-0050F204-6': 'Desktop',
+        '1-0050F204-7': 'MID (Mobile Internet Device)',
+        '1-0050F204-8': 'Netbook',
+        '1-0050F204-9': 'Tablet',
+        '2-0050F204-1': 'Keyboard',
+        '2-0050F204-2': 'Mouse device',
+        '2-0050F204-3': 'Joystick device',
+        '2-0050F204-4': 'Trackball device',
+        '2-0050F204-5': 'Gaming controller',
+        '2-0050F204-6': 'Remote device',
+        '2-0050F204-7': 'Touchscreen device',
+        '2-0050F204-8': 'Biometric reader',
+        '2-0050F204-9': 'Barcode reader',
+        '3-0050F204-1': 'Printer',
+        '3-0050F204-2': 'Scanner',
+        '3-0050F204-3': 'Fax',
+        '3-0050F204-4': 'Copier',
+        '3-0050F204-5': 'All-in-one Printer',
+        '4-0050F204-1': 'Digital Still Camera',
+        '4-0050F204-2': 'Video Camera',
+        '4-0050F204-3': 'Web Camera',
+        '4-0050F204-4': 'Security Camera',
+        '5-0050F204-1': 'NAS storage device',
+        '6-0050F204-1': 'AP Network Infrastructure device',
+        '6-0050F204-2': 'Router device',
+        '6-0050F204-3': 'Switch device',
+        '6-0050F204-4': 'Gateway device',
+        '7-0050F204-1': 'Television device',
+        '7-0050F204-2': 'Electronic Picture Frame device',
+        '7-0050F204-3': 'Projector device',
+        '7-0050F204-4': 'Monitor device',
+        '8-0050F204-1': 'DAR device',
+        '8-0050F204-2': 'PVR device',
+        '8-0050F204-3': 'MCX device',
+        '8-0050F204-4': 'Set-top box',
+        '8-0050F204-5': 'Media Server/Media Adapter/Media Extender',
+        '8-0050F204-6': 'Portable Video Player',
+        '9-0050F204-1': 'Xbox',
+        '9-0050F204-2': 'Xbox360',
+        '9-0050F204-3': 'Playstation',
+        '9-0050F204-4': 'Game Console/Game Console Adapter',
+        '9-0050F204-5': 'Portable Gaming Device',
+        '10-0050F204-1': 'Windows Mobile',
+        '10-0050F204-2': 'Phone – single mode',
+        '10-0050F204-3': 'Phone – dual mode',
+        '10-0050F204-4': 'Smartphone – single mode',
+        '10-0050F204-5': 'Dual-band Smartphone',
+        '11-0050F204-1': 'Audio tuner/receiver',
+        '11-0050F204-2': 'Speakers',
+        '11-0050F204-3': 'Portable Music Player (PMP)',
+        '11-0050F204-4': 'Headset (headphones + microphone)',
+        '11-0050F204-5': 'Headphones',
+        '11-0050F204-6': 'Microphone',
+        '255-0050F204-1': 'generic device' # also used by hostp2pd when the device type is not in table
+    }
+
+    p2p_password_id = {
+        # from "Wi-Fi Simple ConfigurationTechnical Specification" Version 2.0.5
+        # Table 37 – Device Password ID
+        0: 'Default (PIN)',
+        1: 'User-specified', # means that the requestor enters PIN (ref. "Table 1—Summary of WSC Config Methods and Device Password ID usage" of "Wi-Fi Peer-to-Peer (P2P) Technical Specification"
+        2: 'Machine-specified',
+        3: 'Rekey',
+        4: 'PushButton', # means that the requestor uses PBC
+        5: 'Registrar-specified',
+        6: 'Reserved (for IBSS with Wi-Fi Protected Setup Specification)',
+        7: 'NFC-Connection-Handover',
+        8: 'P2Ps (Reserved for Wi-Fi Peer-to-Peer Services Specification)',
+        9: 'Reserved',
+        10: 'Reserved',
+        11: 'Reserved',
+        12: 'Reserved',
+        13: 'Reserved',
+        14: 'Reserved',
+        15: 'Reserved'
+        # Greater numbers: 0x0010 to 0xFFFF - Randomly generated value for Password given to the Enrollee or Registrar via an Out-of-Band Device Password attribute.
+    }
+
     select_timeout_secs = {   # see read_wpa() and find_timing_level
         "normal": 10,         # seconds. Period to send p2p_find refreshes
         "connect": 90,        # seconds. Increased timing while p2p_connect
         "long": 600,          # seconds. Period to send p2p_find refreshes after exceeding self.max_scan_polling
         "enroller": 600,      # seconds. Period used by the enroller
     }
+
     p2p_client = "wpa_cli"    # wpa_cli program name
     min_conn_delay = 40       # seconds delay before issuing another p2p_connect or enroll
     max_num_failures = 3      # max number of retries for a p2p_connect
@@ -162,11 +252,15 @@ class HostP2pD:
     pin = "00000000"          # default pin
     pin_module = None         # external pin module
     force_logging = None      # default force_logging
-    interface = "p2p-dev-wlan0" # default interface
+    interface = "auto"        # default interface
     run_program = ""          # default run_program
     pbc_white_list = []       # default name white list for push button (pbc) enrolment
     network_parms = []        # network parameters when creating a peristent group if none is already defined
     config_parms = []         # wpa_supplicant configuration parameters
+    do_not_debug = [          # do not add debug logs for the events in the list
+        'CTRL-EVENT-SCAN-STARTED',
+        'CTRL-EVENT-SCAN-RESULTS'
+        ]
     conf_schema = """
 %YAML 1.1
 ---
@@ -287,7 +381,11 @@ config_parms: <class 'open_dict'>
                                     successs = False
                         if types:
                             try:
+                                old_interface = self.interface
                                 self.__dict__.update(config["hostp2pd"])
+                                if (old_interface != "auto"
+                                        and self.interface == "auto"):
+                                    self.interface = old_interface
                             except Exception as e:
                                 logging.critical(
                                     'Wrong "hostp2pd" section in YAML '
@@ -395,6 +493,7 @@ config_parms: <class 'open_dict'>
         time.sleep(sleep)
         self.statistics = {}
         self.addr_register = {}
+        self.dev_type_register = {}
 
     def set_defaults(self):
         self.p2p_connect_time = 0  # 0=run function (set by start_session() and enrol())
@@ -421,6 +520,7 @@ config_parms: <class 'open_dict'>
         self.terminate_is_active = False  # silence read/write errors if terminating
         self.statistics = {}
         self.addr_register = {}
+        self.dev_type_register = {}
         self.is_daemon = False
         self.last_pwd = None
         self.stack = []
@@ -466,9 +566,13 @@ config_parms: <class 'open_dict'>
         termios.tcsetattr(self.slave_fd, termios.TCSADRAIN, no_echo)
 
         # Start process connected to the slave pty
+        if self.interface == "auto":
+            command = [self.p2p_client]
+        else:
+            command = [self.p2p_client, "-i", self.interface]
         try:
             self.process = subprocess.Popen(
-                [self.p2p_client, "-i", self.interface],
+                command,
                 # shell=True,
                 stdin=self.slave_fd,
                 stdout=self.slave_fd,
@@ -526,6 +630,8 @@ config_parms: <class 'open_dict'>
                 os.close(self.master_fd)
         except:
             logging.debug("Cannot close file descriptors.")
+        if not self.is_enroller:
+            self.external_program(self.EXTERNAL_PROG_ACTION.TERMINATED)
         if self.process != None:
             self.process.terminate()
             try:
@@ -613,10 +719,33 @@ config_parms: <class 'open_dict'>
             self.is_daemon = True
         if not self.is_enroller:
             threading.current_thread().name = "Core"
+            self.external_program(self.EXTERNAL_PROG_ACTION.STARTED)
         if self.is_enroller or self.process == None:
             if not self.start_process():
                 return
         self.read_configuration(configuration_file=self.config_file)
+
+        if self.is_enroller:
+            logging.info(
+                'Enroller subprocess for group "%s" started',
+                self.monitor_group
+            )
+        else:
+            logging.warning(
+                "__________"
+                "hostp2pd Service started (v%s) "
+                "PID=%s, PPID=%s, PGRP=%s, SID=%s, is_daemon=%s"
+                "__________",
+                __version__,
+                os.getpid(),
+                os.getppid(),
+                os.getpgrp(),
+                os.getsid(0),
+                self.is_daemon,
+            )
+
+        if self.interface == "auto":
+            self.auto_select_interface()
 
         # Load pin module
         if self.pin_module:
@@ -653,25 +782,6 @@ config_parms: <class 'open_dict'>
             )
             self.activate_autonomous_group = False
 
-        if self.is_enroller:
-            logging.info(
-                'Enroller subprocess for group "%s" started',
-                self.monitor_group
-            )
-        else:
-            logging.warning(
-                "__________"
-                "hostp2pd Service started (v%s) "
-                "PID=%s, PPID=%s, PGRP=%s, SID=%s, is_daemon=%s"
-                "__________",
-                __version__,
-                os.getpid(),
-                os.getppid(),
-                os.getpgrp(),
-                os.getsid(0),
-                self.is_daemon,
-            )
-
         self.threadState = self.THREAD.ACTIVE
 
         """ main loop """
@@ -697,10 +807,11 @@ config_parms: <class 'open_dict'>
                 self.cmd = None
             if self.cmd == None:
                 self.cmd = self.read_wpa()
-                logging.debug(
-                    "(enroller) recv: %s" if self.is_enroller else "recv: %s",
-                    repr(self.cmd),
-                )
+                if not any (skip in self.cmd for skip in self.do_not_debug):
+                    logging.debug(
+                        "(enroller) recv: %s" if self.is_enroller
+                        else "recv: %s", repr(self.cmd),
+                    )
             if self.cmd == None:
                 self.terminate()
                 return
@@ -866,34 +977,13 @@ config_parms: <class 'open_dict'>
             station = self.station
         if not station or station == None:
             return
-        self.external_program("stop")
+        self.external_program(self.EXTERNAL_PROG_ACTION.START_GROUP)
         persistent_postfix = ""
         if self.activate_persistent_group and self.dynamic_group:
             persistent_postfix = " persistent"
             if self.persistent_network_id != None:
                 persistent_postfix += "=" + self.persistent_network_id
-        if self.pbc_in_use:
-            self.write_wpa(
-                "p2p_connect "
-                + station
-                + " pbc"
-                + persistent_postfix
-                + (" " + self.p2p_connect_opts if self.p2p_connect_opts else "")
-            )
-            logging.warning("Connection request (pbc method): %s", station)
-        else:
-            self.last_pwd = self.get_pin(self.pin)
-            hide_from_logging([self.last_pwd], "********")
-            self.write_wpa(
-                "p2p_connect "
-                + station
-                + " "
-                + self.last_pwd
-                + " display"
-                + persistent_postfix
-                + (" " + self.p2p_connect_opts if self.p2p_connect_opts else "")
-            )
-            logging.warning("Connection request (PIN method): %s", station)
+        self.p2p_command(self.P2P_COMMAND.P2P_CONNECT, station)
         self.p2p_connect_time = time.time()
         self.group_type = "Negotiated (always won)"
 
@@ -974,10 +1064,11 @@ config_parms: <class 'open_dict'>
                     )
                     self.write_wpa("p2p_group_remove " + monitor_group)
                     wait_cmd = time.time()
+                    self.external_program(
+                        self.EXTERNAL_PROG_ACTION.STOP_GROUP, monitor_group)
                     monitor_group = None
                     logging.warning("removed %s", input_line)
                     time.sleep(2)
-                    self.external_program("start")
                 else:
                     logging.debug(
                         'Found "%s": %s group %s of interface %s',
@@ -992,19 +1083,73 @@ config_parms: <class 'open_dict'>
                 self.stack.append(input_line)
         return monitor_group
 
+    def auto_select_interface(self):
+        """ auto-select p2p device interface """
+        logging.debug('Starting auto_select_interface.')
+        self.write_wpa("interface")
+        self.write_wpa("ping")
+        wait_cmd = 0
+        cmd_timeout = time.time()
+        error = 0
+        while True:
+            input_line = self.read_wpa()
+            if input_line == None:
+                if error > self.max_num_failures:
+                    logging.critical(
+                        "Internal Error (auto_select_interface): "
+                        "read_wpa() abnormally terminated"
+                    )
+                    self.terminate_enrol()
+                    self.terminate()
+                logging.error("no data (auto_select_interface)")
+                time.sleep(0.5)
+                error += 1
+                continue
+            error = 0
+            logging.debug("reading '%s'", input_line)
+            if self.warn_on_input_errors(input_line):
+                continue
+            if time.time() > cmd_timeout + self.min_conn_delay:
+                logging.debug(
+                    "Terminating auto_select_interface procedure "
+                    "after timeout of %s seconds.",
+                    self.min_conn_delay,
+                )
+                break
+            if "PONG" in input_line and not wait_cmd:
+                logging.debug(
+                    'Terminating auto_select_interface. Interface="%s".',
+                    self.interface
+                )
+                break
+            tokens = input_line.split("-")
+            if len(tokens) != 3:
+                continue
+            if tokens[0] != "p2p":
+                continue
+            if tokens[1] != "dev":
+                continue
+            if self.interface == "auto":
+                logging.info('Using interface "%s".', input_line)
+                self.interface = input_line
+                self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_DEVICE)
+            else:
+                logging.debug('List interface "%s".', input_line)
+                continue
+        return
+
     def count_active_sessions(self):
         """Enroller counts the number of active sessions
         of a P2P-GO group and writes this number to Core
         """
-        if not self.is_enroller:
-            logging.debug(
-                "Enroller shall call count_active_sessions procedure!")
-            return None
         logging.debug("Starting count_active_sessions procedure")
+        if not self.is_enroller:
+            self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_GO)
+        self.write_wpa("ping")
         self.write_wpa("list_sta")
         self.write_wpa("ping")
         n_stations = 0
-        wait_cmd = 0
+        flush_data = True # skip the first ping (used to flush previous data)
         cmd_timeout = time.time()
         error = 0
         while True:
@@ -1032,8 +1177,12 @@ config_parms: <class 'open_dict'>
                     self.min_conn_delay,
                 )
                 break
+            if flush_data:
+                if "PONG" in input_line:
+                    flush_data = False
+                continue
             if re.match(
-                "^[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$",
+                "^(?:> )?[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$",
                 input_line.lower(),
             ):
                 n_stations += 1
@@ -1042,7 +1191,7 @@ config_parms: <class 'open_dict'>
                     input_line, n_stations
                 )
                 continue
-            if "PONG" in input_line and not wait_cmd:
+            if "PONG" in input_line:
                 logging.debug(
                     "Terminating count_active_sessions. n_stations=%s.",
                     n_stations,
@@ -1056,6 +1205,8 @@ config_parms: <class 'open_dict'>
                 ).encode()
             ),
         )
+        if not self.is_enroller:
+            self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_DEVICE)
         return n_stations
 
     def configure_wpa(self):
@@ -1330,7 +1481,6 @@ config_parms: <class 'open_dict'>
                 self.persistent_network_id = tokens[0]
                 if not start_group:
                     continue
-                self.external_program("stop")
                 self.write_wpa(
                     "p2p_group_add persistent="
                     + self.persistent_network_id
@@ -1348,6 +1498,8 @@ config_parms: <class 'open_dict'>
                     ssid,
                     self.persistent_network_id,
                 )
+                self.external_program(
+                    self.EXTERNAL_PROG_ACTION.START_GROUP, ssid)
                 time.sleep(1)
         return ssid
 
@@ -1366,9 +1518,9 @@ config_parms: <class 'open_dict'>
                 'No persistent group available for interface "%s".', group
             )
             return None
-        self.write_wpa("interface " + group)
+        self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_GO)
         self.write_wpa("status")
-        self.write_wpa("interface " + self.interface)
+        self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_DEVICE)
         self.write_wpa("ping")
         cmd_timeout = time.time()
         logging.debug(
@@ -1481,7 +1633,15 @@ config_parms: <class 'open_dict'>
                 break
         return pbc_in_use
 
-    def external_program(self, action):
+    class EXTERNAL_PROG_ACTION:
+        STARTED =     "started"     # executed at hostp2pd startup
+        TERMINATED =  "terminated"  # executed at hostp2pd termination
+        START_GROUP = "start_group" # executed before creating a group
+        STOP_GROUP =  "stop_group"  # executed after removing a group
+        CONNECT =     "connect"     # executed after a station connects a group
+        DISCONNECT =  "disconnect"  # executed after a station disconnects a group
+
+    def external_program(self, action, *args):
         if (
             not self.run_program
             or self.run_program.isspace()
@@ -1489,27 +1649,33 @@ config_parms: <class 'open_dict'>
         ):
             return
 
-        if action == "stop" and self.run_prog_stopped:
-            return
-        else:
-            self.run_prog_stopped = True
+        if action == self.EXTERNAL_PROG_ACTION.START_GROUP:
+            if self.run_prog_stopped:
+                return
+            else:
+                self.run_prog_stopped = True
 
-        if action == "start" and not self.run_prog_stopped:
-            return
-        else:
-            self.run_prog_stopped = False
+        if action == self.EXTERNAL_PROG_ACTION.STOP_GROUP:
+            if not self.run_prog_stopped:
+                return
+            else:
+                self.run_prog_stopped = False
 
-        logging.debug("Running %s %s", self.run_program, action)
-        ret = os.system(self.run_program + " " + action)
+        arguments = " ".join(args)
+        if arguments:
+            arguments = " " + arguments
+        logging.debug(
+            "Running %s %s %s", self.run_program, action, arguments)
+        ret = os.system(self.run_program + " " + action + arguments)
         logging.debug(
             "%s completed with exit code %s",
             self.run_program,
-            os.WEXITSTATUS(ret),
-        )
+            os.WEXITSTATUS(ret))
 
     def default_workflow(self, event_stat_name):
         if "CTRL-EVENT-TERMINATING" in event_stat_name:
             logging.warning("Service terminated")
+            self.external_program(self.EXTERNAL_PROG_ACTION.TERMINATED)
             # self.terminate() # uncomment if you wan to terminate on CTRL-EVENT-TERMINATING
             logging.error("wpa_supplicant disconnected")
             return True
@@ -1542,7 +1708,11 @@ config_parms: <class 'open_dict'>
         PBC = 1
         DISPLAY = 2
 
-    def in_process_enrol(self, dev_name, mac_addr, type):  # Obsolete
+    def in_process_enrol(self, dev_name, mac_addr, type):
+        """ Obsolete basic in-process function to perform the enrolling in the
+            Core thread; using the Enroller process is suggested instead of
+            this function (use_enroller).
+        """
         if self.use_enroller:
             logging.debug("Using enroller subprocess to connect.")
             return
@@ -1560,7 +1730,7 @@ config_parms: <class 'open_dict'>
             self.monitor_group,
         )
         cmd_timeout = time.time()
-        self.write_wpa("interface " + self.monitor_group)
+        self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_GO)
         error = 0
         while True:
             input_line = self.read_wpa()
@@ -1600,7 +1770,7 @@ config_parms: <class 'open_dict'>
             self.write_wpa("wps_pin " + mac_addr + " " + self.last_pwd)
         if type == self.ENROL_TYPE.PBC:
             self.write_wpa("wps_pbc " + mac_addr)
-        self.write_wpa("interface " + self.interface)
+        self.p2p_command(self.P2P_COMMAND.SET_INTERFACE_P2P_DEVICE)
         logging.debug("Enrol procedure terminated")
         return
 
@@ -1651,6 +1821,79 @@ config_parms: <class 'open_dict'>
             self.statistics[event_stat_name] = 0
         self.statistics[event_stat_name] += 1
 
+    class P2P_COMMAND:
+        """ P2P commands to be used with p2p_command(). """
+        SET_INTERFACE_P2P_GO = 0
+        SET_INTERFACE_P2P_DEVICE = 1
+        P2P_INVITE_PERSISTENT = 2
+        P2P_INVITE_GROUP = 3
+        P2P_CONNECT = 4 # parameters: MAC address; optional join, go_intent
+
+    def p2p_command(self, command, mac_addr=None, go_intent=None, join=False):
+        """ pre-tested p2p commands to be used inside the program
+            for current and future needs, or to be assessed with the
+            command-line interpreter.
+        """
+        persistent_postfix = ""
+        if self.activate_persistent_group:
+            persistent_postfix = " persistent"
+            if self.persistent_network_id != None:
+                persistent_postfix += "=" + self.persistent_network_id
+
+        if command == self.P2P_COMMAND.SET_INTERFACE_P2P_GO:
+            self.write_wpa("interface " + self.monitor_group)
+            return True
+
+        if command == self.P2P_COMMAND.SET_INTERFACE_P2P_DEVICE:
+            self.write_wpa("interface " + self.interface)
+            return True
+
+        if command == self.P2P_COMMAND.P2P_INVITE_PERSISTENT:
+            self.write_wpa(
+                "p2p_invite"
+                + persistent_postfix
+                + " peer=" + mac_addr
+                + (" " + self.p2p_connect_opts
+                    if self.p2p_connect_opts
+                    else "")
+            )
+            logging.debug('Invite %s to "%s" with %s',
+                mac_addr, self.monitor_group, persistent_postfix)
+            return True
+
+        if command == self.P2P_COMMAND.P2P_INVITE_GROUP:
+            self.write_wpa(
+                "p2p_invite"
+                + " group=" + self.monitor_group
+                + " peer=" + mac_addr
+                + (" " + self.p2p_connect_opts
+                    if self.p2p_connect_opts
+                    else "")
+            )
+            logging.debug('Invite %s to "%s"', mac_addr, self.monitor_group)
+            return True
+
+        if command == self.P2P_COMMAND.P2P_CONNECT:
+            self.last_pwd = self.get_pin(self.pin)
+            hide_from_logging([self.last_pwd], "********")
+            self.write_wpa(
+                "p2p_connect "
+                + mac_addr + " "
+                + ("pbc" if self.pbc_in_use
+                    else self.last_pwd + " display")
+                + persistent_postfix
+                + (" join" if join else "")
+                + (" go_intent=" + str(go_intent) if go_intent != None else "")
+                + (" " + self.p2p_connect_opts
+                    if self.p2p_connect_opts
+                    else "")
+            )
+            logging.warning("Connection request " +
+                ("(pbc method)" if self.pbc_in_use else "(PIN method)") +
+                ": %s", mac_addr)
+            return True
+        return None
+
     def handle(self, wpa_cli):
         """ handles all events """
         # https://w1.fi/wpa_supplicant/devel/ctrl_iface_page.html
@@ -1693,6 +1936,20 @@ config_parms: <class 'open_dict'>
         pri_dev_type = re.sub(
             r".*pri_dev_type=([^ ]*).*", r"\1", wpa_cli, 1
         )  # some events have "pri_dev_type="
+        device_type = self.p2p_primary_device_type['255-0050F204-1']
+        if pri_dev_type in self.p2p_primary_device_type:
+            device_type = self.p2p_primary_device_type[pri_dev_type]
+        dev_passwd_id = re.sub(
+            r".*dev_passwd_id=([^ ]*).*", r"\1", wpa_cli, 1
+        )  # some events have "dev_passwd_id="
+        password_id = 'Unknown'
+        if dev_passwd_id.isnumeric():
+            password_id = 'Random'
+            if int(dev_passwd_id) in self.p2p_password_id:
+                password_id = self.p2p_password_id[int(dev_passwd_id)]
+        go_intent = re.sub(
+            r".*go_intent=([^ ]*).*", r"\1", wpa_cli, 1
+        )  # some events have "go_intent="
         ssid_arg = re.sub(
             r'.*ssid="([^"]*).*', r"\1", wpa_cli, 1
         )  # read ssid="<name>"
@@ -1705,8 +1962,8 @@ config_parms: <class 'open_dict'>
             #        self.wpa_supplicant_errors > self.max_num_wpa_cli_failures):
             if self.wpa_supplicant_errors > self.max_num_wpa_cli_failures:
                 if self.is_enroller:
-                    os.write(
-                        self.father_slave_fd, "HOSTP2PD_TERMINATE_ENROLLER")
+                    os.write(self.father_slave_fd,
+                        "HOSTP2PD_TERMINATE_ENROLLER".encode())
                 self.terminate()
                 return False
             return True
@@ -1715,8 +1972,9 @@ config_parms: <class 'open_dict'>
         # Account "self.statistics"
         if event_name == "HOSTP2PD_ADD_REGISTER":
             stat_tokens = wpa_cli.split("\t")
-            if stat_tokens[1] and stat_tokens[2]:
+            if stat_tokens[1] and stat_tokens[2] and stat_tokens[3]:
                 self.addr_register[stat_tokens[1]] = stat_tokens[2]
+                self.dev_type_register[stat_tokens[1]] = stat_tokens[3]
             return True
         if event_name == "HOSTP2PD_STATISTICS":
             stat_tokens = wpa_cli.split("\t")
@@ -1740,7 +1998,7 @@ config_parms: <class 'open_dict'>
                             + "\t"
                             + event_stat_name
                             + "\n"
-                        ).encode(),
+                        ).encode()
                     )
         else:
             if event_stat_name and self.can_register_cmds:
@@ -1829,13 +2087,28 @@ config_parms: <class 'open_dict'>
             return True
         self.scan_polling = 0  # scan polling is reset by any message different than 'OK' and 'p2p_find'
 
-        if self.is_enroller:
-            logging.debug("(enroller) event_name: %s", event_name)
-        else:
-            logging.debug("event_name: %s", event_name)
+        if not any (skip in event_name for skip in self.do_not_debug):
+            logging.debug(
+                "(enroller) event_name: %s" if self.is_enroller
+                else "event_name: %s", repr(event_name),
+            )
 
-        # > <3>CTRL-EVENT-SCAN-STARTED
+        # <3>CTRL-EVENT-SCAN-STARTED
         if event_name == "CTRL-EVENT-SCAN-STARTED":
+            return True
+        
+        # <3>CTRL-EVENT-EAP-RETRANSMIT 02:87:01:8c:ce:f6
+        if event_name == "CTRL-EVENT-EAP-RETRANSMIT":
+            return True
+
+        # <3>CTRL-EVENT-SCAN-RESULTS
+        if event_name == "CTRL-EVENT-SCAN-RESULTS":
+            return True
+
+        # FAIL-CHANNEL-UNSUPPORTED
+        if event_name == "FAIL-CHANNEL-UNSUPPORTED":
+            logging.error("The requested channel is not available for P2P. "
+                "(Possibly already in use)")
             return True
 
         # <3>CTRL-EVENT-DISCONNECTED bssid=de:a6:32:01:82:03 reason=3 locally_generated=1
@@ -1844,13 +2117,10 @@ config_parms: <class 'open_dict'>
                 "CTRL-EVENT-DISCONNECTED received: terminating enroller"
             )
             self.count_active_sessions()
-            os.write(self.father_slave_fd, "HOSTP2PD_TERMINATE_ENROLLER")
+            os.write(self.father_slave_fd,
+                "HOSTP2PD_TERMINATE_ENROLLER".encode())
             self.terminate()
             return False
-
-        # <3>CTRL-EVENT-SCAN-RESULTS
-        if event_name == "CTRL-EVENT-SCAN-RESULTS":
-            return True
 
         # <3>RX-PROBE-REQUEST sa=b6:3b:9b:7a:08:96 signal=0
         if self.is_enroller and event_name == "RX-PROBE-REQUEST":
@@ -1921,18 +2191,27 @@ config_parms: <class 'open_dict'>
                 self.monitor_group,
             )
             self.count_active_sessions()
-            os.write(self.father_slave_fd, "HOSTP2PD_TERMINATE_ENROLLER")
+            os.write(self.father_slave_fd,
+                "HOSTP2PD_TERMINATE_ENROLLER".encode())
             self.terminate()
             return False
 
         # <3>WPS-ENROLLEE-SEEN 56:3b:c6:4a:4a:b3 811e2280-33d1-5ce8-97e5-6fcf1598c173 10-0050F204-5 0x4388 0 1 [test]
-        if event_name == "WPS-ENROLLEE-SEEN":  # only on the GO (Enroller)
+        if event_name == "WPS-ENROLLEE-SEEN" and self.is_enroller:  # only on the GO (Enroller)
             e_device_name = re.sub(
                 r"^\[(.*)\]$", r"\1", " ".join(wpa_cli_word[7:]), 1
             )
+            device_type = self.p2p_primary_device_type['255-0050F204-1']
+            if wpa_cli_word[3] in self.p2p_primary_device_type:
+                device_type = self.p2p_primary_device_type[wpa_cli_word[3]]
             self.addr_register[mac_addr] = e_device_name
+            self.dev_type_register[mac_addr] = device_type
+            os.write(self.father_slave_fd, ("HOSTP2PD_ADD_REGISTER" + "\t"
+                    + mac_addr + "\t" + e_device_name + "\t" + device_type
+                    + "\n").encode())
             logging.debug(
-                'Enrolling station "%s" with address "%s".',
+                'Enrolling %s "%s" with address "%s".',
+                device_type,
                 e_device_name,
                 mac_addr,
             )
@@ -1969,11 +2248,15 @@ config_parms: <class 'open_dict'>
                     if self.monitor_group:
                         self.write_wpa(
                             "p2p_group_remove " + self.monitor_group)
+                        self.external_program(
+                            self.EXTERNAL_PROG_ACTION.STOP_GROUP,
+                            self.monitor_group)
                         self.monitor_group = ""
                     else:
                         self.monitor_group = self.list_or_remove_group(True)
+                        self.external_program(
+                            self.EXTERNAL_PROG_ACTION.STOP_GROUP)
                     time.sleep(3)
-                    self.external_program("start")
                 self.write_wpa("p2p_find")
             return True
 
@@ -1990,34 +2273,28 @@ config_parms: <class 'open_dict'>
 
         # <3>P2P-DEVICE-FOUND ae:e2:d3:41:27:14 p2p_dev_addr=ae:e2:d3:41:a7:14 pri_dev_type=3-0050F204-1 name='test' config_methods=0x0 dev_capab=0x25 group_capab=0x81 vendor_elems=1 new=1
         if event_name == "P2P-DEVICE-FOUND" and mac_addr:
+            self.addr_register[mac_addr] = dev_name
+            self.dev_type_register[mac_addr] = device_type
             if self.is_enroller:
-                os.write(
-                    self.father_slave_fd,
-                    (
-                        "HOSTP2PD_ADD_REGISTER"
-                        + "\t"
-                        + mac_addr
-                        + "\t"
-                        + dev_name
-                        + "\n"
-                    ).encode(),
-                )
-            else:
-                self.addr_register[mac_addr] = dev_name
+                os.write(self.father_slave_fd, ("HOSTP2PD_ADD_REGISTER" + "\t"
+                        + mac_addr + "\t" + dev_name + "\t" + device_type
+                        + "\n").encode())
             logging.debug(
-                'Found station with name "%s" and address "%s".',
+                'Found %s with name "%s" and address "%s".',
+                device_type,
                 dev_name,
                 mac_addr,
             )
             return True
 
         # <3>P2P-GO-NEG-REQUEST ee:54:44:24:70:df dev_passwd_id=1 go_intent=6
-        if (
-            event_name == "P2P-GO-NEG-REQUEST" and mac_addr
-        ):  # This does not provide "dev_name"
+        # dev_passwd_id=<value> parameter indicates which config method is being requested.
+        if event_name == "P2P-GO-NEG-REQUEST" and mac_addr:  # This does not provide "dev_name"
             self.find_timing_level = "connect"
-            logging.debug("P2P-GO-NEG-REQUEST received")
-            if self.pbc_in_use:
+            logging.debug(
+                "P2P-GO-NEG-REQUEST received, password ID=%s, go_intent=%s",
+                    password_id, go_intent)
+            if self.pbc_in_use and not self.monitor_group:
                 if not mac_addr in self.addr_register:
                     logging.error(
                         'While pbc is in use, cannot find name '
@@ -2038,7 +2315,28 @@ config_parms: <class 'open_dict'>
                     mac_addr,
                     self.monitor_group,
                 )
-                self.in_process_enrol(dev_name, mac_addr, self.ENROL_TYPE.PBC)
+                persistent_postfix = ""
+                if not self.pbc_in_use and dev_passwd_id != '1':
+                    logging.error(
+                        'Wrong dev_passwd_id received by address "%s": %s',
+                        mac_addr,
+                        dev_passwd_id
+                    )
+                    return True
+                if self.pbc_in_use and dev_passwd_id != '4':
+                    logging.error(
+                        'Wrong dev_passwd_id received by address "%s": %s',
+                        mac_addr,
+                        dev_passwd_id
+                    )
+                    return True
+                logging.error(
+                    'Invalid negotiation request from station with address '
+                    '"%s".', mac_addr)
+                #self.write_wpa("p2p_group_remove " + self.monitor_group)
+                #self.monitor_group = ""
+                #self.p2p_command(
+                #    self.P2P_COMMAND.P2P_CONNECT, mac_addr)
                 return True
             else:
                 logging.debug(
@@ -2058,29 +2356,35 @@ config_parms: <class 'open_dict'>
             # <3>P2P-PROV-DISC-ENTER-PIN 02:5e:6d:3d:99:8b p2p_dev_addr=02:5e:6d:3d:99:8b pri_dev_type=10-0050F204-5 name='test' config_methods=0x188 dev_capab=0x25 group_capab=0x0
             if event_name == "P2P-PROV-DISC-ENTER-PIN":
                 logging.error(
-                    "Station '%s' with name '%s' asked "
+                    "%s '%s' with name '%s' asked "
                     "to enter its PIN to connect",
+                    device_type,
                     mac_addr,
                     dev_name,
                 )
+                self.dev_type_register[mac_addr] = device_type
                 # self.write_wpa("p2p_reject " + mac_addr)
 
             # <3>P2P-PROV-DISC-PBC-REQ ca:d5:d5:38:d6:69 p2p_dev_addr=ca:d5:d5:38:d6:69 pri_dev_type=10-0050F204-5 name='test' config_methods=0x88 dev_capab=0x25 group_capab=0x0
             if event_name == "P2P-PROV-DISC-PBC-REQ" and not self.pbc_in_use:
                 logging.error(
-                    "Station '%s' with name '%s' asked to connect with PBC",
+                    "%s '%s' with name '%s' asked to connect with PBC",
+                    device_type,
                     mac_addr,
                     dev_name,
                 )
+                self.dev_type_register[mac_addr] = device_type
                 # self.write_wpa("p2p_reject " + mac_addr)
 
             # <3>P2P-PROV-DISC-SHOW-PIN ee:54:44:24:70:df 93430999 p2p_dev_addr=ee:54:44:24:70:df pri_dev_type=10-0050F204-5 name='test' config_methods=0x188 dev_capab=0x25 group_capab=0x0
             if event_name == "P2P-PROV-DISC-SHOW-PIN" and self.pbc_in_use:
                 logging.error(
-                    "Station '%s' with name '%s' asked to connect with PIN",
+                    "%s '%s' with name '%s' asked to connect with PIN",
+                    device_type,
                     mac_addr,
                     dev_name,
                 )
+                self.dev_type_register[mac_addr] = device_type
                 # self.write_wpa("p2p_reject " + mac_addr)
 
             if event_name == "P2P-PROV-DISC-SHOW-PIN" and not self.pbc_in_use:
@@ -2155,6 +2459,9 @@ config_parms: <class 'open_dict'>
                 device_name,
                 self.monitor_group,
             )
+            self.external_program(
+                self.EXTERNAL_PROG_ACTION.CONNECT,
+                p2p_dev_addr, device_name, self.monitor_group)
             return True
 
         # <3>AP-STA-DISCONNECTED ee:54:44:24:70:df p2p_dev_addr=ee:54:44:24:70:df
@@ -2162,6 +2469,9 @@ config_parms: <class 'open_dict'>
             logging.warning(
                 'Station "%s" (%s) disconnected.', p2p_dev_addr, device_name
             )
+            self.external_program(
+                self.EXTERNAL_PROG_ACTION.DISCONNECT,
+                p2p_dev_addr, device_name, self.monitor_group)
             self.p2p_connect_time = 0
             self.find_timing_level = "normal"
             return True
@@ -2178,11 +2488,15 @@ config_parms: <class 'open_dict'>
             if self.dynamic_group and not self.activate_persistent_group:
                 if self.monitor_group:
                     self.write_wpa("p2p_group_remove " + self.monitor_group)
+                    self.external_program(
+                        self.EXTERNAL_PROG_ACTION.STOP_GROUP,
+                        self.monitor_group)
                     self.monitor_group = ""
                 else:
                     self.monitor_group = self.list_or_remove_group(True)
+                    self.external_program(
+                        self.EXTERNAL_PROG_ACTION.STOP_GROUP)
                 time.sleep(3)
-                self.external_program("start")
             self.write_wpa("p2p_find")
             return True
 
@@ -2192,7 +2506,8 @@ config_parms: <class 'open_dict'>
                 "Accepted invitation to persistent group %s.", persistent_arg
             )
             self.find_timing_level = "connect"
-            self.external_program("stop")
+            self.external_program(
+                self.EXTERNAL_PROG_ACTION.START_GROUP, persistent_arg)
             return True
 
         if event_name == "P2P-FIND-STOPPED":
@@ -2226,7 +2541,8 @@ config_parms: <class 'open_dict'>
             self.monitor_group = wpa_cli_word[1]
             if ssid_arg:
                 self.ssid_group = ssid_arg
-            logging.warning("Autonomous group started: %s", self.monitor_group)
+            logging.warning(
+                "Autonomous group started: %s", self.monitor_group)
             self.run_enrol()
             return True
 
@@ -2283,7 +2599,8 @@ config_parms: <class 'open_dict'>
                 else:
                     logging.error("Group formation failed.")
                     self.num_failures = 0
-                    self.external_program("start")
+                    self.external_program(
+                        self.EXTERNAL_PROG_ACTION.STOP_GROUP)
                     self.write_wpa("p2p_find")
                 return True
             else:
@@ -2311,7 +2628,8 @@ config_parms: <class 'open_dict'>
                 else:
                     logging.error("Cannot negotiate P2P Group Owner.")
                     self.num_failures = 0
-                    self.external_program("start")
+                    self.external_program(
+                        self.EXTERNAL_PROG_ACTION.STOP_GROUP)
                     self.write_wpa("p2p_find")
                 return True
 
@@ -2328,7 +2646,8 @@ config_parms: <class 'open_dict'>
                     self.start_session()  # use the last value of self.station
                 else:
                     self.num_failures = 0
-                    self.external_program("start")
+                    self.external_program(
+                        self.EXTERNAL_PROG_ACTION.STOP_GROUP)
                     self.write_wpa("p2p_find")
                 return True
 

@@ -30,7 +30,7 @@ hostp2pd: # (remember to indent options)
 #  pin: "00000000" # pin
 #  pin_module: None # external pin module
 #  force_logging: None # force_logging
-#  interface: "p2p-dev-wlan0" # interface
+#  interface: "p2p-dev-wlan0" # default value is "auto"; using the command line argument is preferred
 #  run_program: "" # run_program
 #  pbc_white_list: # name white list for push button (pbc) enrolment
 #  - "test1"

@@ -54,13 +54,15 @@ or simply:
 hostp2pd
 ```
 
+The above command uses the automatically detected P2P-Device interface and the internal default configuration file.
+
 Using a P2P-Device interface and a configuration file:
 
 ```shell
 hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml
 ```
 
-- `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the interface device *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface.
+- `-i` option: The P2P-Device interface used by hostp2pd is created by *wpa_supplicant* over the physical wlan interface (if default options are used). Use `iw dev` to list the available wlan interfaces. An *unnamed/non-netdev* interface with *type P2P-device* should be found. If no P2P-Device is shown (e.g., only the physical *phy#0* Interface *wlan0* is present), either *wpa_supplicant* is not active or it is not appropriately compiled/configured. With *wlan0* as physical interface (ref. `iw dev`), to get the name of the P2P-Interface use the command `wpa_cli -i wlan0 interface`: it should return the interface device *wlan0* and the P2P-device (e.g., *p2p-dev-wlan0*). Use this name as argument to the `-i` option of *hostp2pd*. Notice also that, if a P2P-Device is configured, `wpa_cli` without option should automatically point to this interface. If `-i` option is not used, *hostp2pd* tries to automatically detect the right interface.
 - `-c` option: a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file ([here](hostp2pd/hostp2pd.yaml) an example) is not strictly necessary to start a first test; a minimum parameter would be the PIN, which can be alternatively defined using a shell [Here Document](https://en.wikipedia.org/wiki/Here_document) expression:
   ```shell
   hostp2pd -i p2p-dev-wlan0 -c - <<\eof
@@ -125,17 +127,40 @@ valid interface combinations:
        total <= 3, #channels <= 2
 ```
 
-Optionally, *hostp2pd* allows the `-p` option, which defines an external program to be run with "stop" argument before activating a group and with "start" argument after deactivating a group; this allows controlling external AP resources before groups are created or after groups are removed.
+Optionally, *hostp2pd* allows the `-p` option, which defines an external program to be run with specific arguments each time preconfigured events occur, like activating or deactivating a group; this for instance allows controlling external AP resources before groups are created or after groups are removed.
 
-This is an example of RUN_PROGRAM:
+Preconfigured events:
+
+- "started": executed at *hostp2pd* startup
+- "terminated": executed at *hostp2pd* termination
+- "start_group": executed before creating a P2P GO group
+- "stop_group": executed after removing a P2P GO group
+- "connect": executed after a station connects to a group
+- "disconnect": executed after a station disconnects from a group
+
+Events might have additional arguments, which are used to add related attributes.
+
+This is an example of RUN_PROGRAM (/tmp/run_program_sample):
 
 ```bash
 #!/bin/bash
-set -o errexit nounset -o pipefail -o functrace -o errtrace -eE
+# /tmp/run_program_sample
+set -o errexit -o nounset -o pipefail -o functrace -o errtrace -eE
 case "$1" in
-stop) echo "Received 'stop' command due to a P2P-GO group creation";;
-start) echo "Received 'start' command due to a P2P-GO group removal";;
+started) echo "hpstp2pd startup - $@";;
+terminated) echo "hpstp2pd terminated - $@";;
+start_group) echo "P2P-GO group creation - $@";;
+stop_group) echo "P2P-GO group removal - $@";;
+connect) echo "Station connected - $@";;
+disconnect) echo "Station disconnected - $@";;
+*) echo "Unknown command - $@";;
 esac
+```
+
+Related test case:
+
+```shell
+hostp2pd -i p2p-dev-wlan0 -c /etc/hostp2pd.yaml -p /tmp/run_program_sample
 ```
 
 In all cases, *wpa_cli* can be used in parallel to *hostp2pd*. Specifically, *wpa_cli* can be started on the physical interface (`wpa_cli -i wlan0`), on the P2P-Device (`wpa_cli -i p2p-dev-wlan0`) and on a specific P2P-GO group when available (e.g., `wpa_cli -i p2p-wlan0-0`).
@@ -225,6 +250,7 @@ hostp2pd -c /etc/hostp2pd.yaml -b - <<\eof
 stats
 wait 60
 stats
+stations
 eof
 ```
 
@@ -232,38 +258,37 @@ eof
 
 The *wpa_supplicant* configuration file allows to include optional parameters identifying the UNIX system when presenting itself on the network.
 
-*device_type* represents the primary device type with information of category, sub-category, and a manufacturer specific [OUI (Organization ID)](https://en.wikipedia.org/wiki/Organizationally_unique_identifier).
+*device_type* represents the primary device type with information of category, sub-category, and a manufacturer specific [OUI (Organization ID)](https://en.wikipedia.org/wiki/Organizationally_unique_identifier) conforming to "Annex B P2P Specific WSC IE Attributes" in "Wi-Fi Peer-to-Peer (P2P) Technical Specification".
 
-Examples from the [hostapd.conf manual](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf):
+Used format from the [hostapd.conf manual](https://w1.fi/cgit/hostap/plain/hostapd/hostapd.conf) related to the *Primary Device Type* parameter:
 
 ```
-# Primary Device Type
-# Used format: <categ>-<OUI>-<subcateg>
-# categ = Category as an integer value
-# OUI = OUI and type octet as a 4-octet hex-encoded value; 0050F204 for
-#       default WPS OUI
-# subcateg = OUI-specific Sub Category as an integer value
-# Examples:
-#   1-0050F204-1 (Computer / PC)
-#   1-0050F204-2 (Computer / Server)
-#   5-0050F204-1 (Storage / NAS)
-#   6-0050F204-1 (Network Infrastructure / AP)
+<categ>-<OUI>-<subcateg>
+```
+
+- categ = Category as an integer value: "Category ID" defined in the Annex B format of the WiFi Direct specification.
+- OUI = A four-byte subdivided "OUI and type" field, consisting of a 4-octet hex-encoded value which identifies a product from a specific company and is basically the first three octets of a MAC address with the addition of a type subfield. [As documented by Microsoft](https://docs.microsoft.com/en-us/windows/win32/api/wcntypes/ns-wcntypes-wcn_value_type_primary_device_type), the 0050F204 CDI-32 OUI is a Vendor­Specific IE referred to Microsoft (00:50:f2), with subtype 4 (wireless device). Anyway, as reported in the Wi-Fi Peer-to-Peer (P2P) Technical Specification, 0050F204 is the predefined value for a default OUI for a generic vendor.
+- subcateg = OUI-specific Sub Category: "Sub Category ID" defined in the Annex B format of the WiFi Direct specification
+
+The following table reports some commented examples:
+
+device_type|Device Type|Description
+-----------|-----------|-----------
+1-0050F204-1|Computer / PC|Category 1 = Computer, Sub Category 1 = PC
+1-0050F204-2|Computer / Server|Category 1 = Computer, Sub Category 2 = Server
+5-0050F204-1|Storage / NAS|Category 5 = Storage, Sub Category 1 = NAS
+6-0050F204-1|Network Infrastructure / AP|Category 6 = Network Infrastructure, Sub Category 1 = AP
+10-0050F204-5|Telephone / Smartphone – dual mode|Category 10 = Telephone, Sub Category 5 = Smartphone – dual mode (typical Android device_type)
+3-0050F204-1|Printer|Category 3 = Printers, Scanners, Faxes and Copiers, Sub Category 1 = Printer or Print Server
+3-0050F204-5|All-in-one Printer|Category 3 = Printers, Scanners, Faxes and Copiers, Sub Category 1 = All-in-one (Printer, Scanner, Fax, Copier)
+
+The *Primary Device Type* parameter is for instance used to identify the device with the "pri_dev_type" field of "P2P-DEVICE-FOUND", "P2P-PROV-DISC-ENTER-PIN", "P2P-PROV-DISC-PBC-REQ", "P2P-PROV-DISC-SHOW-PIN" (or in WPS-ENROLLEE-SEEN).
+
+Suggested device type for *hostp2pd*:
+
+```
 device_type=6-0050F204-1
 ```
-
-The OUI identifies a product from a specific company and is basically the first three octets of a MAC address.
-
-Explanation of `device_type=6-0050F204-1` [as documented by Microsoft](https://docs.microsoft.com/en-us/windows/win32/api/wcntypes/ns-wcntypes-wcn_value_type_primary_device_type):
-
-- 6 means CATEGORY_NETWORK_INFRASTRUCTURE
-- the 0050F204 CDI-32 OUI is a Vendor­Specific IE referred to Microsoft (00:50:f2), with subtype 4 (wireless device).
-- 1 means SUBTYPE_NETWORK_INFRASTRUCUTURE_AP
-
-Explanation of `device_type=1-0050F204-1` (or `-2` in place of `-1`):
-
-- 1 means CATEGORY_COMPUTER
-- 0050F204 means Microsoft (00:50:f2), with subtype 4 (wireless device)
-- 1 means SUBTYPE_COMPUTER_PC, 2 means SUBTYPE_COMPUTER_SERVER  
 
 Other possible elements that can be declared in *wpa_supplicant.conf*:
 
@@ -374,9 +399,9 @@ Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 - UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster);
 - the latest [*wpa_supplicant* development version](http://w1.fi/cgit/hostap), to take advantage of *p2p_device_random_mac_addr* to overcome the [MAC randomization issue with persistent groups](#mac-randomization).
 - Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 is not supported.
-- P2P Clients including Android 11, Android 10, Android 9, Android 8 and Android 7 smartphones.
+- P2P Clients including Android 11, Android 10, Android 9, Android 8, Android 7 and Android 6 smartphones.
 
-Wi-Fi Direct is present in most smartphones with at least Android 4.0; notice anyway that only recent Android versions support the local saving of persistent groups. Android 6 does not appear to be able to manage them correctly. With some Android 7 devices, the enrolment is always needed when connecting a persistent group. Some devices have a slower notification of announced groups; generally if the UNIX system device does not appear after a P2P-GO is created, try exiting from the Android Wi-Fi Direct panel and then and re-entering. Some devices also show the AP icon. Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
+Wi-Fi Direct is present in most smartphones with at least Android 4.0 (API level 14); notice anyway that only recent Android versions support the local saving of persistent groups. With some Android 6 and 7 devices (depending on the ROM), the enrolment is always needed when connecting a persistent group. Some devices have a slower notification of announced groups; generally if the UNIX system device does not appear after a P2P-GO is created, try exiting from the Android Wi-Fi Direct panel and then and re-entering. Some devices also show the AP icon. Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
 
 ## Built-in keywords
 
@@ -386,9 +411,11 @@ At the `CMD> ` prompt in interactive mode, *hostp2pd* accepts the following comm
 - `loglevel` = If an argument is given, set the logging level, otherwise show the current one. Valid numbers: CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10.
 - `reload` = Reload configuration from the latest valid configuration file. Optional argument is a new configuration file; to load defaults use `reset` as argument.
 - `reset` = Reset the hostp2pd statistics.
-- `stats` = Print execution statistics. Besides, the following variables can be used at prompt level:
+- `stations` = Print all discovered stations. Besides, the following variables can be used at prompt level:
+  - `hostp2pd.addr_register`: peer name for each discovered peer
+  - `hostp2pd.dev_type_register`: peer type for each discovered peer
+- `stats` = Print execution statistics. Besides, the following variable can be used at prompt level:
   - `hostp2pd.statistics`: list of all commands issued by wpa_supplicant
-  - `hostp2pd.addr_register`: list of all discovered peers
 - `quit` (or end-of-file/Control-D, or break/Control-C) = quit the program
 - `help` = List available commands (a detailed help can be obtained with the command name as argument).
 - `pause` = pause the execution. (Related attribute is `hostp2pd.threadState = THREAD.PAUSED`.)
@@ -729,4 +756,4 @@ _______________
 # License
 =========
 
-(C) Ircama 2021 - [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+Copyright (c) Ircama 2021 - [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

@@ -10,8 +10,8 @@
 import sys
 
 try:
-    if sys.hexversion < 0x3060000:
-        raise ImportError("Python version must be >= 3.6")
+    if sys.hexversion < 0x3050000:
+        raise ImportError("Python version must be >= 3.5")
     import threading
     import logging
     from .hostp2pd import HostP2pD
@@ -212,18 +212,33 @@ class Interpreter(Cmd):
                 )
                 self.hostp2pd.config_file = conf_file
 
+    def do_stations(self, arg):
+        "List stations (all discovered wireless P2P Clients)."
+        if arg:
+            print("Invalid format")
+            return
+        format_string_addr = "  {} = {:35s} ({})"
+        if self.hostp2pd.addr_register:
+            print("Station addresses:")
+            for i in self.hostp2pd.addr_register:
+                print(
+                    format_string_addr.format(
+                        i,
+                        self.hostp2pd.addr_register[i],
+                        (self.hostp2pd.dev_type_register[i]
+                            if i in self.hostp2pd.dev_type_register
+                            else "(unknown device type)")
+                    )
+                )
+        else:
+            print("No station addresses available.")
+
     def do_stats(self, arg):
         "Print execution statistics."
         if arg:
             print("Invalid format")
             return
         format_string = "  {:35s} = {}"
-        if self.hostp2pd.addr_register:
-            print("Station addresses:")
-            for i in self.hostp2pd.addr_register:
-                print(format_string.format(i, self.hostp2pd.addr_register[i]))
-        else:
-            print("No station addresses available.")
         if self.hostp2pd.statistics:
             print("Statistics:")
             for i in sorted(self.hostp2pd.statistics):
@@ -241,8 +256,8 @@ class Interpreter(Cmd):
                 "SSID persistent/autonomous group", self.hostp2pd.ssid_group
             )
         )
-        print(format_string.format("Active group",
-            self.hostp2pd.monitor_group))
+        print(format_string.format(
+                "Active group", self.hostp2pd.monitor_group))
         print(
             format_string.format(
                 "Group formation technique", self.hostp2pd.group_type
@@ -453,10 +468,10 @@ class Interpreter(Cmd):
     def default(self, arg):
         hostp2pd = self.hostp2pd  # ref. host_lib
         try:
-            print(eval(arg))
+            print(eval(arg, {**globals(), **locals()}))
         except Exception:
             try:
-                exec(arg, globals())
+                exec(arg, {**globals(), **locals()})
             except Exception as e:
                 print("Error executing command: %s" % e)
 
@@ -548,7 +563,7 @@ def main():
         "--interface",
         dest="interface",
         help="Set the interface managed by hostp2pd.",
-        default=["p2p-dev-wlan0"],
+        default=["auto"],
         nargs=1,
         metavar="INTERFACE",
     )
@@ -735,6 +750,7 @@ def main():
                     w_p2p_interpreter.cmdloop_with_keyboard_interrupt(
                         "Welcome to hostp2pd - "
                         "The Wi-Fi Direct Session Manager.\n"
+                        "Copyright (c) Ircama 2021 - CC BY-NC-SA 4.0.\n"
                         "https://github.com/Ircama/hostp2pd\n"
                         "hostp2pd is running in interactive mode.\n"
                         "Type help or ? to list commands.\n"
