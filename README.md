@@ -392,11 +392,25 @@ Invitation (`p2p_invite`) is not used by the current version of *hostp2pd*, whic
 
 Only UNIX operating systems running *wpa_supplicant* and *wpa_cli* are allowed.
 
+_Important Note: with the current *hostp2pd* version, the only working Operating System is Raspberry Pi 4 Model B with Raspbian Buster O.S. - Other Linux O.S. like Ubuntu are not supported at the moment._
+
+Current Ubuntu 20.04.1 LTS issues with *wpa_cli* (which make *hostp2pd* useless with that O.S.):
+
+- *wpa_cli* is not automatically terminated when *hostp2pd* exits.
+- At group formation, the following temporary error occurs wheb the Enroller runs *wpa_cli*: "Connection to wpa_supplicant lost - trying to reconnect - 0 of 9"
+- Always occurring error *Invalid negotiation request from station with address "fe:c1:3f:1c:b1:b7".* while performing a session connection from an Android phone.
+
+Current Ubuntu 20.04.1 LTS issues with *wpa_supplicant*:
+
+- *wpa_supplicant* dies when *hostp2pd* updates the configuration without configuration file in the parameter and with NetworkManager integration through `-u`
+- *wpa_supplicant* does not support `p2p_device_random_mac_addr=1` and `p2p_device_random_mac_addr=2`
+
 *hostp2pd* has been tested with:
 
-- UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster);
-- the latest [*wpa_supplicant* development version](http://w1.fi/cgit/hostap), to take advantage of *p2p_device_random_mac_addr* to overcome the [MAC randomization issue with persistent groups](#mac-randomization).
-- Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 is not supported.
+- Raspberry Pi 4 Model B hw
+- Raspberry Pi OS Buster O.S.
+- UNIX wpa_cli and wpa_supplicant version v2.8-devel (Debian Buster); it is suggested to use the latest [*wpa_supplicant* development version](http://w1.fi/cgit/hostap) to take advantage of *p2p_device_random_mac_addr* which overcomes the [MAC randomization issue with persistent groups](#mac-randomization).
+- Python 3.7.3 on Debian (Raspberry Pi OS Buster). Python 2 and Python versions older than 3.6 are not supported.
 - P2P Clients including Android 11, Android 10, Android 9, Android 8, Android 7 and Android 6 smartphones.
 
 Wi-Fi Direct is present in most smartphones with at least Android 4.0 (API level 14); notice anyway that only recent Android versions support the local saving of persistent groups. With some Android 6 and 7 devices (depending on the ROM), the enrolment is always needed when connecting a persistent group. Some devices have a slower notification of announced groups; generally if the UNIX system device does not appear after a P2P-GO is created, try exiting from the Android Wi-Fi Direct panel and then and re-entering. Some devices also show the AP icon. Sometimes the enrolling might fail, often depending on the Android version (this is possibly due to timeout issues, especially correlated to missing *WPS-ENROLLEE-SEEN* events sent by the Android device).
