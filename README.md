@@ -591,6 +591,8 @@ dbus.Interface(dbus.SystemBus().get_object("fi.w1.wpa_supplicant1",\
 
 This is because *wpa_supplicant* does not expose *p2p-dev-wlan0* to *dbus*. It means that [the old Python test examples](http://w1.fi/cgit/hostap/tree/wpa_supplicant/examples/p2p) included in *wpa_supplicant* sources, which exploited *dbus*, are not usable. Notice also that if *p2p-dev-wlan0* in the above Python command is changed to *wlan0* (which is unrelated to P2P anyway), the command returns with no errors.
 
+If [NetworkManager](https://en.wikipedia.org/wiki/NetworkManager) is used to configure the network interfaces, it connects *wpa_supplicant* via *dbus* and the `-u` option is needed for appropriate interaction between the two programs. Anyway, NetworkManager does not manage P2P functions.
+
 *hostp2pd* relises on *wpa_cli* considering that:
 
 - it is natively integrated with *wpa_supplicant* via proven and roboust communication method,
@@ -696,23 +698,32 @@ __Notes__
 
 # wpa_supplicant issues
 
-## Android device never browsing the UNIX system running wpa_supplicant
-
-Check that the Android device supports both 2.4 GHz and 5 GHz bands: *wpa_supplicant* might have used a 5 GHz channel for the P2P-GO group, which will not be received by an Android device only supporting the 2.4 GHz band.
-
-To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `p2p_group_add_opts: freq=2` in *hostp2pd.yaml*. Anyway, on some devices (Raspberry Pi) after some time the band might be autonomously moved to the 5 GHz band (by the wireless device driver); in such cases, the only possible method to force the permanent usage of 2.4 GHz band is by setting a [country code](https://en.wikipedia.org/wiki/List_of_WLAN_channels) that denies the allocation of 5 GHz frequencies according to the related regulatory domain; for instance, depending on the device driver setup, adding `country=RU` to the *wpa_supplicant* configuration file should only allow Wi-Fi channels 1 to 13.
-
-
 ## wpa_cli does not connect to wpa_supplicant
 
-Test *wpa_cli* using sudo. if it does not connect, check the configuration of the ctrl_interface socket used with your system (e.g., `-C` option of wpa_supplicant* or *ctrl_interface* in its configuration file).
+Example of error messagge: *Could not connect to wpa_supplicant: (nil) - re-trying*.
 
-If *wpa_cli* connects the network device (e.g., *wlan0*) but not the P2P-Device (e.g., *p2p-dev-wlan0*), use `iw dev` to check the presence of a P2P-Device. If not existing, then *wpa_supplicant* has configuration issues. Run *wpa_supplicant* with `-dd` options and verify the error messages:
+Check the existence of the UNIX sockets (generally under */var/run/wpa_supplicant*, see the *ctrl_interface* parameter in the *wpa_supplicant* configuration file, or the *wpa_supplicant* command line arguments):
+
+```
+ls -l /var/run/wpa_supplicant
+```
+
+If one or more UNIX socket special files exist, generally this error means that *wpa_cli* has not permissions enough to access the *wpa_supplicant* UNIX socket. Try running *wpa_cli* and *hostp2pd* with *root* or *netdev* permissions.
+
+If the *ctrl_interface* directory does not exist, either *wpa_supplicant* is not running, or it is running with not appropriate configuration.
+
+If *wpa_cli* connects the network device (e.g., *wlan0*, like `wpa_cli -i wlan0`) but not the P2P-Device (e.g., *p2p-dev-wlan0*), use `iw dev` to check the presence of a P2P-Device. If not existing, then *wpa_supplicant* has configuration issues. Run *wpa_supplicant* with `-dd` options and verify the error messages:
 
 ```shell
 kill <wpa supplicant process>
 sudo /sbin/wpa_supplicant -c<configuration file> -Dnl80211,wext -i<network device> -dd
 ```
+
+## Android device never browsing the UNIX system running wpa_supplicant
+
+Check that the Android device supports both 2.4 GHz and 5 GHz bands: *wpa_supplicant* might have used a 5 GHz channel for the P2P-GO group, which will not be received by an Android device only supporting the 2.4 GHz band.
+
+To force *wpa_supplicant* to use the 2.4 GHz band for the P2P-GO group, set `p2p_group_add_opts: freq=2` in *hostp2pd.yaml*. Anyway, on some devices (Raspberry Pi) after some time the band might be autonomously moved to the 5 GHz band (by the wireless device driver); in such cases, the only possible method to force the permanent usage of 2.4 GHz band is by setting a [country code](https://en.wikipedia.org/wiki/List_of_WLAN_channels) that denies the allocation of 5 GHz frequencies according to the related regulatory domain; for instance, depending on the device driver setup, adding `country=RU` to the *wpa_supplicant* configuration file should only allow Wi-Fi channels 1 to 13.
 
 ## Failed to create a P2P Device -22 (Invalid argument)
 

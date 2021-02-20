@@ -565,6 +565,10 @@ config_parms: <class 'open_dict'>
         no_echo[3] = no_echo[3] & ~termios.ECHO  # lflag
         termios.tcsetattr(self.slave_fd, termios.TCSADRAIN, no_echo)
 
+        # Disable wpa_cli command line history
+        if 'HOME' in os.environ:
+            del os.environ['HOME']
+
         # Start process connected to the slave pty
         if self.interface == "auto":
             command = [self.p2p_client]
@@ -1280,6 +1284,7 @@ config_parms: <class 'open_dict'>
         self.write_wpa("add_network")
         can_append = False
         error = 0
+        last_command = "(Unknown command)"
         while True:
             input_line = self.read_wpa()
             if input_line == None:
@@ -1314,7 +1319,10 @@ config_parms: <class 'open_dict'>
                     input_line = "OK"
                     can_append = True
             if "FAIL" in input_line:
-                logging.error("Cannot add network.")
+                logging.error(
+                    'Cannot add network. '
+                    'Check configuration and password length: "%s"',
+                    last_command)
                 listn = None
                 break
             if "OK" in input_line:
@@ -1324,11 +1332,12 @@ config_parms: <class 'open_dict'>
                     or listn >= len(self.network_parms)
                 ):
                     break
+                last_command = self.network_parms[listn]
                 self.write_wpa(
                     "set_network "
                     + network_id
                     + " "
-                    + self.network_parms[listn]
+                    + last_command
                 )
                 listn += 1
                 continue
