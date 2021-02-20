@@ -625,10 +625,7 @@ The following commands allow downloading the latest version of the *wpa_supplica
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git
-sudo apt-get install -y libnl-genl-3-dev libnl-route-3-dev
-sudo apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
-sudo apt-get install -y libssl-dev
+sudo apt-get install -y git libnl-genl-3-dev libnl-route-3-dev build-essential libdbus-glib-1-dev libgirepository1.0-dev libssl-dev libdbus-1-dev
 
 git clone git://w1.fi/srv/git/hostap.git
 cd hostap
