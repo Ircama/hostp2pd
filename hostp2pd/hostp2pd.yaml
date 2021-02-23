@@ -18,6 +18,7 @@ hostp2pd: # (remember to indent options)
 #  max_num_failures: 3 # max number of retries for a p2p_connect
 #  max_num_wpa_cli_failures: 9 # max number of wpa_cli errors
 #  max_scan_polling: 2 # max number of p2p_find consecutive polling (0=infinite number)
+#  save_config_enabled: True # Disable if old wpa_supplicant version crashes with save_config when missing file
 #  pbc_in_use: None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
 #  p2p_group_add_opts: None # Arguments to add to p2p_group_add, like freq=2 or freq=5
 #  p2p_connect_opts: None # Arguments to add to p2p_connect, like freq=2 or freq=5

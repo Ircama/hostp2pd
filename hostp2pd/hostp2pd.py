@@ -239,6 +239,7 @@ class HostP2pD:
     max_num_failures = 3      # max number of retries for a p2p_connect
     max_num_wpa_cli_failures = 9 # max number of wpa_cli errors
     max_scan_polling = 2      # max number of p2p_find consecutive polling (0=infinite number)
+    save_config_enabled = True # Disable if old wpa_supplicant version crashes with save_config when missing file
     pbc_in_use = None         # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
     p2p_group_add_opts = None # Arguments to add to p2p_group_add, like freq=2 or freq=5
     p2p_connect_opts = None   # Arguments to add to p2p_connect, like freq=2 or freq=5
@@ -273,6 +274,7 @@ min_conn_delay: <class 'float'>
 max_num_failures: <class 'float'>
 max_num_wpa_cli_failures: <class 'float'>
 max_scan_polling: <class 'float'>
+save_config_enabled: <class 'bool'>
 pbc_in_use: <class 'bool'>
 p2p_group_add_opts: <class 'str'>
 p2p_connect_opts: <class 'str'>
@@ -1271,9 +1273,93 @@ config_parms: <class 'open_dict'>
                 "configure_wpa procedure terminated without saving config."
             )
         if success:
-            self.write_wpa("save_config")
+            if self.save_config_enabled:
+                self.flush_wpa()
+                self.write_wpa("save_config")
+                if not self.ok_fail_wpa():
+                    logging.error(
+                        'Save configuration not supported by wpa_supplicant.')
             logging.debug("configure_wpa procedure completed.")
         return success
+
+    def flush_wpa(self):
+        """Flush read data from wpa_cli
+        """
+        logging.debug("Starting flush_wpa procedure")
+        self.write_wpa("ping")
+        cmd_timeout = time.time()
+        error = 0
+        while True:
+            input_line = self.read_wpa()
+            if input_line == None:
+                if error > self.max_num_failures:
+                    logging.critical(
+                        "Internal Error (flush_wpa): "
+                        "read_wpa() abnormally terminated"
+                    )
+                    self.terminate_enrol()
+                    self.terminate()
+                logging.error("no data (flush_wpa)")
+                time.sleep(0.5)
+                error += 1
+                continue
+            error = 0
+            logging.debug("reading '%s'", input_line)
+            if self.warn_on_input_errors(input_line):
+                continue
+            if time.time() > cmd_timeout + self.min_conn_delay:
+                logging.debug(
+                    "Terminating flush_wpa procedure "
+                    "after timeout of %s seconds.",
+                    self.min_conn_delay,
+                )
+                break
+            if "PONG" in input_line:
+                logging.debug(
+                    "Terminating flush_wpa.")
+                break
+        return
+
+    def ok_fail_wpa(self):
+        """Read OK or FAIL from wpa_cli
+        """
+        logging.debug("Starting ok_fail_wpa procedure")
+        cmd_timeout = time.time()
+        error = 0
+        while True:
+            input_line = self.read_wpa()
+            if input_line == None:
+                if error > self.max_num_failures:
+                    logging.critical(
+                        "Internal Error (ok_fail_wpa): "
+                        "read_wpa() abnormally terminated"
+                    )
+                    self.terminate_enrol()
+                    self.terminate()
+                logging.error("no data (ok_fail_wpa)")
+                time.sleep(0.5)
+                error += 1
+                continue
+            error = 0
+            logging.debug("reading '%s'", input_line)
+            if self.warn_on_input_errors(input_line):
+                continue
+            if time.time() > cmd_timeout + self.min_conn_delay:
+                logging.debug(
+                    "Terminating ok_fail_wpa procedure "
+                    "after timeout of %s seconds.",
+                    self.min_conn_delay,
+                )
+                break
+            if "OK" in input_line:
+                logging.debug(
+                    "OK Received. Terminating ok_fail_wpa.")
+                return True
+            if "FAIL" in input_line:
+                logging.debug(
+                    "FAIL Received. Terminating ok_fail_wpa.")
+                return False
+        return False
 
     def add_network(self, cmd_timeout):
         if len(self.network_parms) == 0:
@@ -1345,9 +1431,20 @@ config_parms: <class 'open_dict'>
                 logging.debug("(add_network) PUSH '%s'", input_line)
                 self.stack.append(input_line)
         if listn and network_id:
+            self.flush_wpa()
             self.write_wpa("set_network " + network_id + " mode 3")
+            if not self.ok_fail_wpa():
+                logging.error(
+                    'cannot set "mode 3" to network "%s".', network_id)
             self.write_wpa("set_network " + network_id + " disabled 2")
-            self.write_wpa("save_config")
+            if not self.ok_fail_wpa():
+                logging.error(
+                    'cannot set "disabled 2" to network "%s".', network_id)
+            if self.save_config_enabled:
+                self.write_wpa("save_config")
+                if not self.ok_fail_wpa():
+                    logging.error(
+                        'Save configuration not supported by wpa_supplicant.')
             self.persistent_network_id = None
             logging.debug("add_network procedure completed.")
             return True
@@ -1503,7 +1600,7 @@ config_parms: <class 'open_dict'>
                 wait_cmd = time.time()
                 logging.warning(
                     'Starting persistent group "%s", n. %s '
-                    "in the wpa_supplicant conf file",
+                    "in the wpa_supplicant conf file.",
                     ssid,
                     self.persistent_network_id,
                 )

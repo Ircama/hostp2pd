@@ -402,7 +402,7 @@ Current Ubuntu 20.04.1 LTS issues with *wpa_cli* (which make *hostp2pd* useless 
 
 Current Ubuntu 20.04.1 LTS issues with *wpa_supplicant*:
 
-- *wpa_supplicant* dies when *hostp2pd* updates the configuration without configuration file in the parameter and with NetworkManager integration through `-u`
+- *wpa_supplicant* dies when *hostp2pd* updates the configuration without configuration file in the parameter and with NetworkManager integration through `-u` (use `save_config_enabled: False` in this case, to avoid the problem).
 - *wpa_supplicant* does not support `p2p_device_random_mac_addr=1` and `p2p_device_random_mac_addr=2`
 
 *hostp2pd* has been tested with:
@@ -762,6 +762,10 @@ ip link set down wlp0s20f3 # this avoid error "RTNETLINK answers: Device or reso
 ip link set wlp0s20f3 name wlan0
 ip link set up wlan0
 ```
+
+## wpa_supplicant crash
+
+Old versions of *wpa_supplicant* will crash when the `save_config` command is issued in certain cases by *wpa_cli*, if no configuration file is available. This is typical of recent Ubuntu versions, where *wpa_supplicant* is started by the *NetworkManager* via *dbus* (`-u` option), without any need of configuration file. Example: `wpa_supplicant -u -s -O /run/wpa_supplicant`. To fix this issue, either upgrade *wpa_supplicant* (e.g., recompiling it from sources) or set `save_config_enabled: False` in the *hostp2pd* YAML configuration file.
 
 # Other notes
 
