@@ -202,15 +202,14 @@ class HostP2pD:
         '11-0050F204-4': 'Headset (headphones + microphone)',
         '11-0050F204-5': 'Headphones',
         '11-0050F204-6': 'Microphone',
-        '255-0050F204-1': 'generic device'  # also used by hostp2pd when the device type is not in table
+        '255-0050F204-1': 'generic device' # also used by hostp2pd when the device type is not in table
     }
 
     p2p_password_id = {
-        # from "Wi-Fi Simple ConfigurationTechnical Specification" Version 2.0.5
-        # Table 37 – Device Password ID
+        # From "Wi-Fi Simple ConfigurationTechnical Specification" Version 2.0.5
+        #  Table 37 – Device Password ID
         0: 'Default (PIN)',
-        1: 'User-specified',
-        # means that the requestor enters PIN (ref. "Table 1—Summary of WSC Config Methods and Device Password ID usage" of "Wi-Fi Peer-to-Peer (P2P) Technical Specification"
+        1: 'User-specified', # means that the requestor enters PIN (ref. "Table 1—Summary of WSC Config Methods and Device Password ID usage" of "Wi-Fi Peer-to-Peer (P2P) Technical Specification"
         2: 'Machine-specified',
         3: 'Rekey',
         4: 'PushButton',  # means that the requestor uses PBC
@@ -229,37 +228,37 @@ class HostP2pD:
     }
 
     select_timeout_secs = {  # see read_wpa() and find_timing_level
-        "normal": 10,  # seconds. Period to send p2p_find refreshes
-        "connect": 90,  # seconds. Increased timing while p2p_connect
-        "long": 600,  # seconds. Period to send p2p_find refreshes after exceeding self.max_scan_polling
-        "enroller": 600,  # seconds. Period used by the enroller
+        "normal": 10,    # seconds. Period to send p2p_find refreshes
+        "connect": 90,   # seconds. Increased timing while p2p_connect
+        "long": 600,     # seconds. Period to send p2p_find refreshes after exceeding self.max_scan_polling
+        "enroller": 600, # seconds. Period used by the enroller
     }
 
-    p2p_client = "wpa_cli"  # wpa_cli program name
-    min_conn_delay = 40  # seconds delay before issuing another p2p_connect or enroll
-    max_num_failures = 3  # max number of retries for a p2p_connect
-    max_num_wpa_cli_failures = 9  # max number of wpa_cli errors
-    max_scan_polling = 2  # max number of p2p_find consecutive polling (0=infinite number)
-    save_config_enabled = True  # Disable if old wpa_supplicant version crashes with save_config when missing file
-    pbc_in_use = None  # Use method selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
-    p2p_group_add_opts = None  # Arguments to add to p2p_group_add, like freq=2 or freq=5
-    p2p_connect_opts = None  # Arguments to add to p2p_connect, like freq=2 or freq=5
-    activate_persistent_group = True  # Activate a persistent group at process startup
+    p2p_client = "wpa_cli"             # wpa_cli program name
+    min_conn_delay = 40                # seconds delay before issuing another p2p_connect or enroll
+    max_num_failures = 3               # max number of retries for a p2p_connect
+    max_num_wpa_cli_failures = 9       # max number of wpa_cli errors
+    max_scan_polling = 2               # max number of p2p_find consecutive polling (0=infinite number)
+    save_config_enabled = True         # Disable if old wpa_supplicant version crashes with save_config when missing file
+    pbc_in_use = None                  # Use method selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
+    p2p_group_add_opts = None          # Arguments to add to p2p_group_add, like freq=2 or freq=5
+    p2p_connect_opts = None            # Arguments to add to p2p_connect, like freq=2 or freq=5
+    activate_persistent_group = True   # Activate a persistent group at process startup
     activate_autonomous_group = False  # Activate an autonomous group at process startup
-    ssid_postfix = None  # Postfix string to be added to the automatically generated groups
-    persistent_network_id = None  # persistent group network number (None = first in wpa_supplicant config.)
-    max_negotiation_time = 120  # seconds. Time for a station to enter the PIN
-    dynamic_group = False  # allow removing group after a session disconnects
-    config_file = None  # default YAML configuration file
-    pin = "00000000"  # default pin
-    pin_module = None  # external pin module
-    force_logging = None  # default force_logging
-    interface = "auto"  # default interface
-    run_program = ""  # default run_program
-    pbc_white_list = []  # default name white list for push button (pbc) enrolment
-    network_parms = []  # network parameters when creating a persistent group if none is already defined
-    config_parms = []  # wpa_supplicant configuration parameters
-    do_not_debug = [  # do not add debug logs for the events in the list
+    ssid_postfix = None                # Postfix string to be added to the automatically generated groups
+    persistent_network_id = None       # persistent group network number (None = first in wpa_supplicant config.)
+    max_negotiation_time = 120         # seconds. Time for a station to enter the PIN
+    dynamic_group = False              # allow removing group after a session disconnects
+    config_file = None                 # default YAML configuration file
+    pin = "00000000"                   # default pin
+    pin_module = None                  # external pin module
+    force_logging = None               # default force_logging
+    interface = "auto"                 # default interface
+    run_program = ""                   # default run_program
+    pbc_white_list = []                # default name white list for push button (pbc) enrolment
+    network_parms = []                 # network parameters when creating a persistent group if none is already defined
+    config_parms = []                  # wpa_supplicant configuration parameters
+    do_not_debug = [                   # do not add debug logs for the events in the list
         'CTRL-EVENT-SCAN-STARTED',
         'CTRL-EVENT-SCAN-RESULTS'
     ]

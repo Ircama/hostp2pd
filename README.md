@@ -650,10 +650,14 @@ make -j$(($(nproc)+1))
 
 # Example of installation:
 sudo mv /sbin/wpa_supplicant /sbin/wpa_supplicant-org
-sudo systemctl stop dhcpcd # in case wpa_supplicant is managed by dhcpcd
+sudo systemctl stop dhcpcd # in case wpa_supplicant is managed by dhcpcd (Debian, Raspberry)
+# sudo systemctl stop NetworkManager # in case wpa_supplicant is managed by the NetworkManager (Ubuntu)
+# sudo systemctl stop wpa_supplicant # in case wpa_supplicant is managed by a specific service (custom setup)
 sudo killall wpa_supplicant # in other cases
 sudo cp wpa_supplicant /sbin
-sudo systemctl start dhcpcd
+sudo systemctl start dhcpcd # in case wpa_supplicant is managed by dhcpcd
+# sudo systemctl start NetworkManager # in case wpa_supplicant is managed by the NetworkManager
+# sudo systemctl start wpa_supplicant # in case wpa_supplicant is managed by a specific service
 pgrep -l wpa_supplicant
 
 # Alternative standard installation example:
