@@ -400,10 +400,11 @@ Current Ubuntu 20.04.1 LTS issues with *wpa_cli* (which make *hostp2pd* useless 
 - At group formation, the following temporary error occurs wheb the Enroller runs *wpa_cli*: "Connection to wpa_supplicant lost - trying to reconnect - 0 of 9"
 - Always occurring error *Invalid negotiation request from station with address "fe:c1:3f:1c:b1:b7".* while performing a session connection from an Android phone.
 
-Current Ubuntu 20.04.1 LTS issues with *wpa_supplicant*:
+Current Ubuntu 20.04.2 LTS issues with *wpa_supplicant* v2.9:
 
 - *wpa_supplicant* dies when *hostp2pd* updates the configuration without configuration file in the parameter and with NetworkManager integration through `-u` (use `save_config_enabled: False` in this case, to avoid the problem).
 - *wpa_supplicant* does not support `p2p_device_random_mac_addr=1` and `p2p_device_random_mac_addr=2`
+- *wpa_supplicant* v2.9 included in Ubuntu 20.04.2 LTS crashes when creating persistent groups. Recompile the program with the latest sources and install the compiled version.
 
 *hostp2pd* has been tested with:
 

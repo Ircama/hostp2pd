@@ -104,7 +104,7 @@ def get_type(value, conf_schema):
     if isinstance(value, dict):
         if conf_schema == "<class 'open_dict'>":
             return conf_schema
-        if conf_schema == None:
+        if conf_schema is None:
             return {key: get_type(value[key], conf_schema) for key in value}
         for key in value:
             if key not in conf_schema:
@@ -377,7 +377,7 @@ config_parms: <class 'open_dict'>
                         types = get_type(config["hostp2pd"], yaml_conf_schema)
                         if types:
                             for key, val in types.items():
-                                if val == None:
+                                if val is None:
                                     logging.critical(
                                         'Invalid parameter: "%s".', key
                                     )
@@ -417,7 +417,7 @@ config_parms: <class 'open_dict'>
             if configuration_file == "reset":
                 logging.debug("Resetting configuration to default values")
                 self.config_file = None
-                if self.force_logging == None:
+                if self.force_logging is None:
                     logging.basicConfig(level=default_level)
                 else:
                     self.logger.setLevel(self.force_logging)
@@ -640,7 +640,7 @@ config_parms: <class 'open_dict'>
             logging.debug("Cannot close file descriptors.")
         if not self.is_enroller:
             self.external_program(self.EXTERNAL_PROG_ACTION.TERMINATED)
-        if self.process != None:
+        if self.process is not None:
             self.process.terminate()
             try:
                 self.process.wait(1)
@@ -701,7 +701,7 @@ config_parms: <class 'open_dict'>
         if (
                 self.use_enroller
                 and not self.is_enroller
-                and self.enroller != None
+                and self.enroller is not None
                 and self.enroller.is_alive()
                 and self.enroller.pid > 0
         ):
@@ -728,7 +728,7 @@ config_parms: <class 'open_dict'>
         if not self.is_enroller:
             threading.current_thread().name = "Core"
             self.external_program(self.EXTERNAL_PROG_ACTION.STARTED)
-        if self.is_enroller or self.process == None:
+        if self.is_enroller or self.process is None:
             if not self.start_process():
                 return
         self.read_configuration(configuration_file=self.config_file)
@@ -813,14 +813,14 @@ config_parms: <class 'open_dict'>
                     break
             if not self.cmd:
                 self.cmd = None
-            if self.cmd == None:
+            if self.cmd is None:
                 self.cmd = self.read_wpa()
                 if not any(skip in self.cmd for skip in self.do_not_debug):
                     logging.debug(
                         "(enroller) recv: %s" if self.is_enroller
                         else "recv: %s", repr(self.cmd),
                     )
-            if self.cmd == None:
+            if self.cmd is None:
                 self.terminate()
                 return
             if self.threadState == self.THREAD.STOPPED:
@@ -855,9 +855,9 @@ config_parms: <class 'open_dict'>
                     # Here some periodic tasks are handled:
 
                     # Controlling whether an active Enroller died
-                    if self.process != None:
+                    if self.process is not None:
                         ret = self.process.poll()
-                        if ret != None:  # Enroller died with ret code
+                        if ret is not None:  # Enroller died with ret code
                             logging.critical(
                                 "wpa_cli died with return code %s."
                                 " Terminating hostp2pd.",
@@ -896,7 +896,7 @@ config_parms: <class 'open_dict'>
 
                 buffer += c
         except TypeError as e:
-            if self.master_fd == None:
+            if self.master_fd is None:
                 logging.debug("Process interrupted.")
             else:
                 logging.critical(
@@ -937,7 +937,7 @@ config_parms: <class 'open_dict'>
         try:
             return os.write(self.master_fd, resp.encode())
         except TypeError as e:
-            if self.master_fd == None:
+            if self.master_fd is None:
                 logging.debug("Process interrupted.")
             else:
                 logging.critical(
@@ -983,13 +983,13 @@ config_parms: <class 'open_dict'>
             self.station = station
         else:
             station = self.station
-        if not station or station == None:
+        if not station or station is None:
             return
         self.external_program(self.EXTERNAL_PROG_ACTION.START_GROUP)
         persistent_postfix = ""
         if self.activate_persistent_group and self.dynamic_group:
             persistent_postfix = " persistent"
-            if self.persistent_network_id != None:
+            if self.persistent_network_id is not None:
                 persistent_postfix += "=" + self.persistent_network_id
         self.p2p_command(self.P2P_COMMAND.P2P_CONNECT, station)
         self.p2p_connect_time = time.time()
@@ -1009,7 +1009,7 @@ config_parms: <class 'open_dict'>
         can_append = False
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (list_or_remove_group): "
@@ -1101,7 +1101,7 @@ config_parms: <class 'open_dict'>
         error = 0
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (auto_select_interface): "
@@ -1162,7 +1162,7 @@ config_parms: <class 'open_dict'>
         error = 0
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (count_active_sessions): "
@@ -1229,7 +1229,7 @@ config_parms: <class 'open_dict'>
             self.write_wpa("set " + parm + " " + str(self.config_parms[parm]))
             while True:
                 input_line = self.read_wpa()
-                if input_line == None:
+                if input_line is None:
                     if error > self.max_num_failures:
                         logging.critical(
                             "Internal Error (configure_wpa): "
@@ -1261,16 +1261,16 @@ config_parms: <class 'open_dict'>
                     success = False
                     break
                 if "OK" in input_line:
-                    if success == None:
+                    if success is None:
                         success = True
                     break
                 logging.debug("(configure_wpa) PUSH '%s'", input_line)
                 self.stack.append(input_line)
-        if success == None:
+        if success is None:
             logging.debug(
                 "configure_wpa procedure terminated without updating config."
             )
-        if success == False:
+        if not success:
             logging.error(
                 "configure_wpa procedure terminated without saving config."
             )
@@ -1280,7 +1280,8 @@ config_parms: <class 'open_dict'>
                 self.write_wpa("save_config")
                 if not self.ok_fail_wpa():
                     logging.error(
-                        'Save configuration not supported by wpa_supplicant.')
+                        'Save configuration not allowed by wpa_supplicant. '
+                        'Missing configuration file.')
             logging.debug("configure_wpa procedure completed.")
         return success
 
@@ -1293,7 +1294,7 @@ config_parms: <class 'open_dict'>
         error = 0
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (flush_wpa): "
@@ -1332,7 +1333,7 @@ config_parms: <class 'open_dict'>
         error = 0
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (ok_fail_wpa): "
@@ -1379,7 +1380,7 @@ config_parms: <class 'open_dict'>
         last_command = "(Unknown command)"
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (add_network): "
@@ -1419,8 +1420,8 @@ config_parms: <class 'open_dict'>
                 break
             if "OK" in input_line:
                 if (
-                        listn == None
-                        or network_id == None
+                        listn is None
+                        or network_id is None
                         or listn >= len(self.network_parms)
                 ):
                     break
@@ -1474,7 +1475,7 @@ config_parms: <class 'open_dict'>
         test_add_network = False
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (list_start_pers_group): "
@@ -1579,7 +1580,7 @@ config_parms: <class 'open_dict'>
             ):
                 ssid = tokens[1]
                 if (
-                        self.persistent_network_id != None
+                        self.persistent_network_id is not None
                         and str(self.persistent_network_id) != tokens[0]
                 ):
                     logging.debug(
@@ -1701,7 +1702,7 @@ config_parms: <class 'open_dict'>
         error = 0
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (get_config_methods): "
@@ -1846,7 +1847,7 @@ config_parms: <class 'open_dict'>
         error = 0
         while True:
             input_line = self.read_wpa()
-            if input_line == None:
+            if input_line is None:
                 if error > self.max_num_failures:
                     logging.critical(
                         "Internal Error (in_process_enrol): "
@@ -1901,7 +1902,7 @@ config_parms: <class 'open_dict'>
             return True
         if "Connected to interface" in input_msg:
             return True
-        if input_msg == self.last_pwd:  # do not add the pin in statistics
+        if input_msg == self.last_pwd:  # do not add the PIN in statistics
             return True
         # Process wpa_supplicant connection problems
         if (
@@ -1921,6 +1922,12 @@ config_parms: <class 'open_dict'>
             return True
         if "wpa_supplicant" in input_msg:
             logging.warning(input_msg)
+            return True
+        if "'SAVE_CONFIG' command timed out." in input_msg:
+            logging.critical("wpa_supplicant crashed due to missing configuration file.")
+            return True
+        if "'PING' command failed." in input_msg:
+            logging.critical("wpa_supplicant connection error.")
             return True
         return False
 
@@ -1995,7 +2002,7 @@ config_parms: <class 'open_dict'>
                    else self.last_pwd + " display")
                 + persistent_postfix
                 + (" join" if join else "")
-                + (" go_intent=" + str(go_intent) if go_intent != None else "")
+                + (" go_intent=" + str(go_intent) if go_intent is not None else "")
                 + (" " + self.p2p_connect_opts
                    if self.p2p_connect_opts
                    else "")
