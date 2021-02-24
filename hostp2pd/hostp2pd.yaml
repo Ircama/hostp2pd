@@ -19,7 +19,7 @@ hostp2pd: # (remember to indent options)
 #  max_num_wpa_cli_failures: 9 # max number of wpa_cli errors
 #  max_scan_polling: 2 # max number of p2p_find consecutive polling (0=infinite number)
 #  save_config_enabled: True # Disable if old wpa_supplicant version crashes with save_config when missing file
-#  pbc_in_use: None # Use methdod selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
+#  pbc_in_use: None # Use method selected in config. (False=keypad, True=pbc, None=wpa_supplicant.conf)
 #  p2p_group_add_opts: None # Arguments to add to p2p_group_add, like freq=2 or freq=5
 #  p2p_connect_opts: None # Arguments to add to p2p_connect, like freq=2 or freq=5
 #  activate_persistent_group: True # Activate a persistent group at process startup
@@ -36,7 +36,7 @@ hostp2pd: # (remember to indent options)
 #  pbc_white_list: # name white list for push button (pbc) enrolment
 #  - "test1"
 #  - "test2"
-#  network_parms: # network parameters when creating a peristent group if none is already defined
+#  network_parms: # network parameters when creating a persistent group if none is already defined
 #   - psk "your_passphrase"
 #   - ssid "DIRECT-PP-postfix"
 #   - proto RSN
