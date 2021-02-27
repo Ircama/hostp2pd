@@ -397,14 +397,13 @@ _Important Note: with the current *hostp2pd* version, the only working Operating
 Current Ubuntu 20.04.1 LTS issues with *wpa_cli* (which make *hostp2pd* useless with that O.S.):
 
 - *wpa_cli* is not automatically terminated when *hostp2pd* exits.
-- At group formation, the following temporary error occurs wheb the Enroller runs *wpa_cli*: "Connection to wpa_supplicant lost - trying to reconnect - 0 of 9"
 - Always occurring error *Invalid negotiation request from station with address "fe:c1:3f:1c:b1:b7".* while performing a session connection from an Android phone.
 
 Current Ubuntu 20.04.2 LTS issues with *wpa_supplicant* v2.9:
 
-- *wpa_supplicant* dies when *hostp2pd* updates the configuration without configuration file in the parameter and with NetworkManager integration through `-u` (use `save_config_enabled: False` in this case, to avoid the problem).
+- *wpa_supplicant* dies when *hostp2pd* updates the configuration without configuration file in the parameter and with NetworkManager integration (through `-u`) (disable `update_config: 1` config_parms to avoid the problem).
 - *wpa_supplicant* does not support `p2p_device_random_mac_addr=1` and `p2p_device_random_mac_addr=2`
-- *wpa_supplicant* v2.9 included in Ubuntu 20.04.2 LTS crashes when creating persistent groups. Recompile the program with the latest sources and install the compiled version.
+- *wpa_supplicant* v2.9 included in Ubuntu 20.04.2 LTS crashes when creating persistent groups. See previous point on disabling `update_config: 1`, or recompile the program with the latest sources and install the compiled version.
 
 *hostp2pd* has been tested with:
 
@@ -477,6 +476,9 @@ Logging is configured in *hostp2pd.yaml*. This is in [Pyhton logging configurati
 In interactive mode, logging can be changed using `loglevel`.
 
 To browse the log files, [lnav](https://github.com/tstack/lnav) is suggested.
+
+If the following error message occurs: `CRITICAL:root:Wrong "logging" section in YAML configuration file "/etc/hostp2pd.yaml": Unable to configure handler 'file'.`, it means that 
+the current *hostp2pd* permissions do not allow updating the log file; try `sudo chmod a+rw /var/log/hostp2pd.log*`.
 
 # Command-line arguments
 
@@ -652,12 +654,12 @@ make -j$(($(nproc)+1))
 sudo mv /sbin/wpa_supplicant /sbin/wpa_supplicant-org
 sudo systemctl stop dhcpcd # in case wpa_supplicant is managed by dhcpcd (Debian, Raspberry)
 # sudo systemctl stop NetworkManager # in case wpa_supplicant is managed by the NetworkManager (Ubuntu)
-# sudo systemctl stop wpa_supplicant # in case wpa_supplicant is managed by a specific service (custom setup)
+# sudo systemctl stop wpa_supplicant.service # in case wpa_supplicant is managed by a specific service (NetworkManager or custom setup)
 sudo killall wpa_supplicant # in other cases
 sudo cp wpa_supplicant /sbin
 sudo systemctl start dhcpcd # in case wpa_supplicant is managed by dhcpcd
 # sudo systemctl start NetworkManager # in case wpa_supplicant is managed by the NetworkManager
-# sudo systemctl start wpa_supplicant # in case wpa_supplicant is managed by a specific service
+# sudo systemctl start wpa_supplicant.service # in case wpa_supplicant is managed by a specific service (NetworkManager or custom setup)
 pgrep -l wpa_supplicant
 
 # Alternative standard installation example:
@@ -714,6 +716,18 @@ change the MAC address and uses the NL80211_ATTR_MAC attribute).
 
 Notice that the default *wpa_supplicant* code manages `p2p_device_random_mac_addr=2` the same as `p2p_device_random_mac_addr=1`. So, if returning back to the original code and if the device driver does not support SIOCGIFFLAGS/SIOCSIFFLAGS ioctl interface control operations to change the MAC address, also remove *p2p_device_random_mac_addr* or set it to 0.
 
+## Compiling wpa_gui
+
+```shell
+cd hostap/wpa_supplicant
+sudo apt-get install -y qt5-default qttools5-dev-tools
+make wpa_gui-qt4
+cd wpa_gui-qt4
+./wpa_gui
+```
+
+Notice that *wpa_gui* connects the wireless interface, but not P2P devices and P2P Groups.
+
 _______________
 
 __Notes__
@@ -733,7 +747,17 @@ ls -l /var/run/wpa_supplicant
 
 If one or more UNIX socket special files exist, generally this error means that *wpa_cli* has not permissions enough to access the *wpa_supplicant* UNIX socket. Try running *wpa_cli* and *hostp2pd* with *root* or *netdev* permissions.
 
-If the *ctrl_interface* directory does not exist, either *wpa_supplicant* is not running, or it is running with not appropriate configuration.
+If the connection succeeds with *root* permission, follow these steps to configure a non-root user to connect:
+- create a group (say "netdev", which should already exist in most distributions; if not existing: `sudo groupadd netdev`);
+- associate the user to that group (e.g., for the user "*my_user*": `sudo usermod -a -G netdev my_user`);
+- check how *wpa_supplicant* is started (`ps -ef | grep wpa_supplicant`):
+  - if the `-O` option is used, like `-O /run/wpa_supplicant`, change it to a string including *DIR* and *GROUP* attributes, assigning *GROUP* to *netdev*, like in `-O "DIR=/run/wpa_supplicant GROUP=netdev"`;
+  - if `-O` and `-i` are not used, while `-s` is used, then you need to set the `-O` option like before; notice that any setting included in the *wpa_supplicant* configuration file (e.g., `-c` option) will not be used in this case; example of correct configuration: `/sbin/wpa_supplicant -u -s -O "DIR=/run/wpa_supplicant GROUP=netdev"`;
+  - if `-O` is not used, while `-i` and `-c` are used, then you can set the *GROUP* attribute in the *wpa_supplicant* configuration file (e.g., specified with `-c` option); example: `ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev`.
+
+  You can use `/var/run` in place of `/run` in the above examples, as generally `/var/run` is a symbolic link of `/run`.
+
+If the *ctrl_interface* directory does not exist (also checked with root user), either *wpa_supplicant* is not running, or it is running with not appropriate configuration.
 
 If *wpa_cli* connects the network device (e.g., *wlan0*, like `wpa_cli -i wlan0`) but not the P2P-Device (e.g., *p2p-dev-wlan0*), use `iw dev` to check the presence of a P2P-Device. If not existing, then *wpa_supplicant* has configuration issues. Run *wpa_supplicant* with `-dd` options and verify the error messages:
 
@@ -770,7 +794,7 @@ ip link set up wlan0
 
 ## wpa_supplicant crash
 
-Old versions of *wpa_supplicant* will crash when the `save_config` command is issued in certain cases by *wpa_cli*, if no configuration file is available. This is typical of recent Ubuntu versions, where *wpa_supplicant* is started by the *NetworkManager* via *dbus* (`-u` option), without any need of configuration file. Example: `wpa_supplicant -u -s -O /run/wpa_supplicant`. To fix this issue, either upgrade *wpa_supplicant* (e.g., recompiling it from sources) or set `save_config_enabled: False` in the *hostp2pd* YAML configuration file.
+If no configuration file is set with *wpa_supplicant*, old versions of this program will crash (segmentation fault) when the `save_config` command is issued by *wpa_cli*, or when the internal functions of *wpa_supplicant* require to save the configuration file (e.g., following a P2P Group creation). This is typical of Ubuntu versions where *wpa_supplicant* is started by the *NetworkManager* via *dbus* (`-u` option), without any need of configuration file. Example: `wpa_supplicant -u -s -O /run/wpa_supplicant`. To fix this issue, either upgrade *wpa_supplicant* (e.g., recompiling it from sources) or ensure that the *hostp2pd* configuration file (*hostp2pd.yaml*) does not configure a *config_parms* with `update_config: 1`.
 
 # Other notes
 

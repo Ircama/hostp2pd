@@ -519,7 +519,7 @@ config_parms: <class 'open_dict'>
         self.config_method_in_use = ""
         self.use_enroller = True  # False = run obsolete procedure instead of Enroller
         self.is_enroller = False  # False if I am Core, True if I am Enroller
-        self.enroller = None  # Core can check this to know Enroller is active
+        self.enroller = None  # Core can check this to know whether Enroller is active
         self.terminate_is_active = False  # silence read/write errors if terminating
         self.statistics = {}
         self.addr_register = {}
@@ -673,7 +673,7 @@ config_parms: <class 'open_dict'>
             self.interface = self.monitor_group
             signal.SIGTERM: lambda signum, frame: self.terminate()
             signal.SIGINT: lambda signum, frame: self.terminate()
-            signal.signal(  # Allow reloading enroller configuration with SIGHUP
+            signal.signal(  # Allow reloading Enroller configuration with SIGHUP
                 signal.SIGHUP,
                 lambda signum, frame: self.read_configuration(
                     configuration_file=self.config_file, do_activation=True
@@ -1909,12 +1909,14 @@ config_parms: <class 'open_dict'>
                 or "Connection to wpa_supplicant lost" in input_msg
                 or "Not connected to wpa_supplicant" in input_msg
         ):
-            logging.error(
-                "%s - %s of %s",
-                input_msg,
-                self.wpa_supplicant_errors,
-                self.max_num_wpa_cli_failures,
-            )
+            if (not self.is_enroller or
+                    (self.is_enroller and self.wpa_supplicant_errors>0)):
+                logging.error(
+                    "%s - %s of %s",
+                    input_msg,
+                    self.wpa_supplicant_errors,
+                    self.max_num_wpa_cli_failures,
+                )
             self.wpa_supplicant_errors += 1
             self.monitor_group = None
             self.ssid_group = None
