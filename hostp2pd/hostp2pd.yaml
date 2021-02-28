@@ -28,6 +28,7 @@ hostp2pd: # (remember to indent options)
 #  dynamic_group: False # allow removing group after a session disconnects
 #  persistent_network_id: None # persistent group network number (None = first in wpa_supplicant config.)
 #  max_negotiation_time: 120 # seconds. Time for a station to enter the PIN
+#  wpa_supplicant_min_err_warn: 0 # None(=all warned) or min n. of wpa_supplicant connection errors to skip warning
 #  pin: "00000000" # pin
 #  pin_module: None # external pin module
 #  force_logging: None # force_logging

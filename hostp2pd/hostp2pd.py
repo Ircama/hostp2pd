@@ -248,6 +248,7 @@ class HostP2pD:
     ssid_postfix = None                # Postfix string to be added to the automatically generated groups
     persistent_network_id = None       # persistent group network number (None = first in wpa_supplicant config.)
     max_negotiation_time = 120         # seconds. Time for a station to enter the PIN
+    wpa_supplicant_min_err_warn = 0    # None(=all warned) or min n. of wpa_supplicant connection errors to skip warning
     dynamic_group = False              # allow removing group after a session disconnects
     config_file = None                 # default YAML configuration file
     pin = "00000000"                   # default pin
@@ -283,6 +284,7 @@ activate_autonomous_group: <class 'bool'>
 ssid_postfix: <class 'str'>
 persistent_network_id: <class 'int'>
 max_negotiation_time: <class 'float'>
+wpa_supplicant_min_err_warn: <class 'float'>
 dynamic_group: <class 'bool'>
 pin: <class 'str'>
 pin_module: <class 'str'>
@@ -814,16 +816,16 @@ config_parms: <class 'open_dict'>
                 self.cmd = None
             if self.cmd is None:
                 self.cmd = self.read_wpa()
-                if not any(skip in self.cmd for skip in self.do_not_debug):
-                    logging.debug(
-                        "(enroller) recv: %s" if self.is_enroller
-                        else "recv: %s", repr(self.cmd),
-                    )
             if self.cmd is None:
                 self.terminate()
                 return
             if self.threadState == self.THREAD.STOPPED:
                 return
+            if not any(skip in self.cmd for skip in self.do_not_debug):
+                logging.debug(
+                    "(enroller) recv: %s" if self.is_enroller
+                    else "recv: %s", repr(self.cmd),
+                )
             if not self.handle(self.cmd):
                 self.threadState = self.THREAD.STOPPED
 
@@ -1909,8 +1911,9 @@ config_parms: <class 'open_dict'>
                 or "Connection to wpa_supplicant lost" in input_msg
                 or "Not connected to wpa_supplicant" in input_msg
         ):
-            if (not self.is_enroller or
-                    (self.is_enroller and self.wpa_supplicant_errors>0)):
+            if (self.wpa_supplicant_min_err_warn is None or
+                    self.wpa_supplicant_errors >
+                        self.wpa_supplicant_min_err_warn):
                 logging.error(
                     "%s - %s of %s",
                     input_msg,

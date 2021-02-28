@@ -213,7 +213,7 @@ The above example shows how to predefine a P2P persistent group. Specifically, t
 -	A `mode=3` directive shall be present, meaning [WPAS_MODE_P2P_GO](https://w1.fi/wpa_supplicant/devel/structwpa__ssid.html), otherwise the related `p2p_group_add` command fails for unproper group specification.
 -	A `disabled=2` directive shall be present, meaning persistent P2P group, otherwise the stanza is not even recognized and listed as persistent (`disabled=0` indicates normal network; `disabled=1` will announce a disabled network).
 
-If no persistent group is predefined in in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* asks *wpa_supplicant* to create a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
+If no persistent group is predefined in *wpa_supplicant.conf* and if `activate_persistent_group` is set to `True`, then *hostp2pd* asks *wpa_supplicant* to create a generic persistent group, giving it a name with format `DIRECT-<random two octets>`.
 
 If *update_config* is set to 1, the configuration file is automatically updated by *wpa_supplicant* in the following cases:
 
@@ -256,7 +256,7 @@ eof
 
 ## Device Identification Parameters
 
-The *wpa_supplicant* configuration file allows to include optional parameters identifying the UNIX system when presenting itself on the network.
+The *wpa_supplicant* configuration file allows including optional parameters identifying the UNIX system when presenting itself on the network.
 
 *device_type* represents the primary device type with information of category, sub-category, and a manufacturer specific [OUI (Organization ID)](https://en.wikipedia.org/wiki/Organizationally_unique_identifier) conforming to "Annex B P2P Specific WSC IE Attributes" in "Wi-Fi Peer-to-Peer (P2P) Technical Specification".
 
@@ -264,9 +264,9 @@ Used format from the [hostapd.conf manual](https://w1.fi/cgit/hostap/plain/hosta
 
 *categ*-*OUI*-*subcateg*
 
-- categ = Category as an integer value: "Category ID" defined in the Annex B format of the WiFi Direct specification.
+- categ = Category as an integer value: "Category ID" defined in the Annex B format of the Wi-Fi Direct specification.
 - OUI = A four-byte subdivided "OUI and type" field, consisting of a 4-octet hex-encoded value which identifies a product from a specific company and is basically the first three octets of a MAC address with the addition of a type subfield. [As documented by Microsoft](https://docs.microsoft.com/en-us/windows/win32/api/wcntypes/ns-wcntypes-wcn_value_type_primary_device_type), the 0050F204 CDI-32 OUI is a Vendor­Specific IE referred to Microsoft (00:50:f2), with subtype 4 (wireless device). Anyway, as reported in the Wi-Fi Peer-to-Peer (P2P) Technical Specification, 0050F204 is the predefined value for a default OUI for a generic vendor.
-- subcateg = OUI-specific Sub Category: "Sub Category ID" defined in the Annex B format of the WiFi Direct specification
+- subcateg = OUI-specific Sub Category: "Sub Category ID" defined in the Annex B format of the Wi-Fi Direct specification
 
 The following table reports some commented examples:
 
@@ -362,7 +362,7 @@ Using *virtual_push_button* is extremely weak and discovering the P2P client nam
 
 # Use cases
 
-In summary, with the standard group formation technique negotiated on demand, when a P2P Client starts a connection, the UNIX device will always become a GO (Group Owner) if `p2p_go_intent` in *wpa_supplicant.conf* is set to 15. In autonomous and persistent group formation technique, the UNIX device becomes a group owner by itself without any client request. Persistent groups are saved in the *wpa_supplicant* configuration file and can be reused after restarting *wpa_supplicant* or rebooting the UNIX system (and after rebooting the Android device). While Wi-Fi MAC addressess are generally randomized, with persistent groups both the Android device and the UNIX system keep the same wireless MAC address (see note below on *wpa_supplicant*).
+In summary, with the standard group formation technique negotiated on demand, when a P2P Client starts a connection, the UNIX device will always become a GO (Group Owner) if `p2p_go_intent` in *wpa_supplicant.conf* is set to 15. In autonomous and persistent group formation technique, the UNIX device becomes a group owner by itself without any client request. Persistent groups are saved in the *wpa_supplicant* configuration file and can be reused after restarting *wpa_supplicant* or rebooting the UNIX system (and after rebooting the Android device). While Wi-Fi MAC addresses are generally randomized, with persistent groups both the Android device and the UNIX system keep the same wireless MAC address (see note below on *wpa_supplicant*).
 
 The following table details the use cases:
 
@@ -372,7 +372,7 @@ Negotiated on demand|`activate_persistent_group: False`, `activate_autonomous_gr
 Autonomous on demand|`activate_persistent_group: False`, `activate_autonomous_group: False`, `dynamic_group: False`|P2P Group Formation using on-demand Autonomous GO Method, configuring a non-persistent autonomous group activated upon the first connection: *hostp2pd* uses `p2p_connect` to setup the first session, while all subsequent connections are managed through WPS enrolment. Once created, the related virtual network interface will be kept active. Authorization process is always needed and generally slow (especially the first time, when the group formation is required on the GO).
 Autonomous|`activate_persistent_group: False`, `activate_autonomous_group: True`, `dynamic_group: False`|P2P Group Formation using Autonomous GO Method, configuring a non-persistent autonomous group at startup (using `p2p_group_create`); all connections are managed through WPS enrolment. The related virtual network interface will always be active. Authorization process is always needed.
 Persistent on demand|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: True`|Negotiated persistent group. To setup the first session, *hostp2pd* uses `p2p_connect ... persistent or persistent=<network id>`, depending on the existence of a valid persistent group in *wpa_supplicant* configuration file). The authorization process is only performed the first time (slow), than all reconnections are pretty fast and fully automated by *wpa_supplicant*. With this setting, the P2P Client is able on demand to automatically restart the P2P-GO group on the UNIX system and then connect to this group without WPS enrolment. So, after the P2P-GO group is saved to the P2P Client, any subsequent reconnection of the same client is not mediated by *hostp2pd*; the only task of *hostp2pd* is to enrol new clients, in order to allow them to locally save the persistent group. The related virtual network interface is activated only on demand and then kept active.
-Persistent|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: False`|The persistent group is autonomously activated at program startup. If the persistent group is predefined in *wpa_supplicant.conf*, it is restarted, otherwise a new persistent group is created. The virtual network interface is kept constantly active. The authorization process of a P2P Device is only performed the first time (if the persistent group is not saved in the peer), through WPS enrolment technique; after the persistent group data is saved to the P2P Device, all reconnections of the same device are fast and automatically done without WPS enrolment (so not mediated by *hostp2pd*). The creation of the persistent group is done via *p2p_group_add persistent*. If a persistent group is already (e.g., manually) defined in *wpa_supplicant* (and this is the suggested method), it is reinvoked via *p2p_group_add persistent=n*. If a persistent group is not defined in *wpa_supplicant* and if the *network_parms* list exists in the *hostp2pd* configuration, the persistent group is created with the parameters set in the *network_parms* list, that is used to automatically create and save the network profile (`mode=3` and `disabled=2` are automatically added and so they are not required in the *network_parms* list); if also this configurtion parameter is not set, the persistent group is created with the default parameters set by *wpa_supplicant*. 
+Persistent|`activate_persistent_group: True`, `activate_autonomous_group: False`, `dynamic_group: False`|The persistent group is autonomously activated at program startup. If the persistent group is predefined in *wpa_supplicant.conf*, it is restarted, otherwise a new persistent group is created. The virtual network interface is kept constantly active. The authorization process of a P2P Device is only performed the first time (if the persistent group is not saved in the peer), through WPS enrolment technique; after the persistent group data is saved to the P2P Device, all reconnections of the same device are fast and automatically done without WPS enrolment (so not mediated by *hostp2pd*). The creation of the persistent group is done via *p2p_group_add persistent*. If a persistent group is already (e.g., manually) defined in *wpa_supplicant* (and this is the suggested method), it is re-invoked via *p2p_group_add persistent=n*. If a persistent group is not defined in *wpa_supplicant* and if the *network_parms* list exists in the *hostp2pd* configuration, the persistent group is created with the parameters set in the *network_parms* list, that is used to automatically create and save the network profile (`mode=3` and `disabled=2` are automatically added and so they are not required in the *network_parms* list); if also this configuration parameter is not set, the persistent group is created with the default parameters set by *wpa_supplicant*. 
 
 Using an autonomous GO for a non-persistent group, the passphrase and SSID are automatically created by *wpa_supplicant* (using random strings) and the related settings should not be modified. A persistent group can be either manually or automatically created.
 
@@ -448,13 +448,13 @@ The *reload* command refreshes the configuration of *hostp2pd* as well as the on
 The suggested scenario configures a persistent group. Specifically:
 
 - single persistent group for the whole UNIX system;
-- predefinition of a persistent P2P group in the *wpa_suppicant* configuration file;
-- appropriate configuration of *wpa_suppicant* so that the persistent P2P group will not randomize the MAC address of the related virtual wireless interface;
-- usage of appropriate group name and related WPA configuration in the *wpa_suppicant* configuration file (e.g., WPA2 password), so that this P2P group can also act as AP (instead of using *hostapd*); defining a secret WPA2 password is a workaround to deny AP connections);
-- for better usage of Wi-Fi Direct naming, differentiate the name of the P2P device and the P2P group in the *wpa_suppicant* configuration file (e.g., P2P-Device = "DIRECT-Host"; P2P group = "DIRECT-PP-group");
+- predefinition of a persistent P2P group in the *wpa_supplicant* configuration file;
+- appropriate configuration of *wpa_supplicant* so that the persistent P2P group will not randomize the MAC address of the related virtual wireless interface;
+- usage of appropriate group name and related WPA configuration in the *wpa_supplicant* configuration file (e.g., WPA2 password), so that this P2P group can also act as AP (instead of using *hostapd*); defining a secret WPA2 password is a workaround to deny AP connections;
+- for better usage of Wi-Fi Direct naming, differentiate the name of the P2P device and the P2P group in the *wpa_supplicant* configuration file (e.g., P2P-Device = "DIRECT-Host"; P2P group = "DIRECT-PP-group");
 - *hostp2pd* configuration to use a persistent P2P group activated at process startup, with "keypad" authorization method;
 - *hostp2pd* service setup to start at system boot time;
-- read access protection of *wpa_suppicant* and *hostp2pd* configuration files to non-root users;
+- read access protection of *wpa_supplicant* and *hostp2pd* configuration files to non-root users;
 - *hostp2pd* logging set to root level WARNING (instead of DEBUG mode, which can be used for initial testing);
 - for improved security, definition of a non-standard number of WPS digits (ref. `p2p_passphrase_len`in the *wpa_supplicant* configuration file).
 
@@ -466,12 +466,12 @@ The current *hostp2pd* implementation has the following limitations:
 - At the moment, *hostp2pd* is tested with only one station; two or more stations should concurrently connect to the same persistent group.
 - At the moment, *hostp2pd* manages only one active P2P GO group for a specific P2P-Device, even if more instances of *hostp2pd* are allowed, each one referred to a specific P2P-Device (generally a specific wireless wlan board). This is because *wpa_supplicant* appears to announce the P2P-Device name to the Android clients (ref. "device_name" in the *wpa_supplicant* configuration, which is the same for all groups) and not the specific active P2P GO groups; likewise, it is not known how an Android client can inform *wpa_supplicant* to enrol a specific group of a known P2P-device through the default Wi-Fi Direct user interface. Notice also that some wireless drivers on UNIX systems only allow one P2P-GO group.
 - The enrolment procedure (WPS authorization made by the *hostp2pd* Enroller subprocess) is activated in sync with the start of the P2P group made by *hostp2pd* (either *p2p_connect* or *p2p_group_add* commands) and remains active until the group is removed (reception of *P2P-GROUP-REMOVED* event); single connection requests by P2P Clients (controlled by respective *P2P-PROV-DISC-...* events) will not directly start the WPS authorization process, but will start a group formation (via *p2p_connect*) if a group is not active. While a P2P group is kept active by *hostp2pd*, any P2P Client requesting a P2P connection to the P2P-Device wireless interface will be part of the same active *hostp2pd* enrolment process to the active group.
-- As hostp2pd is fully unattended, the following WPS credential methods are available: *pbc* and *keypad*. The *display* configuration method (much more secure than *keypad*) is not implemented and needs interaction (to insert the PIN presented by the Android handset). This means that at the moment the enrolment is done with either a static PIN saved in the *hostp2pd* configuration file or with no PIN at all (PBC mode). To protect PBC (no PIN), a list of enabled enrollees names can be defined. Notice that this is a weak authentication method, because the enrollees names are publicly announced. After all, MAC address filtering is not appropriate because, if a persistent group is not active, MAC adresses are randomized.
+- As hostp2pd is fully unattended, the following WPS credential methods are available: *pbc* and *keypad*. The *display* configuration method (much more secure than *keypad*) is not implemented and needs interaction (to insert the PIN presented by the Android handset). This means that at the moment the enrolment is done with either a static PIN saved in the *hostp2pd* configuration file or with no PIN at all (PBC mode). To protect PBC (no PIN), a list of enabled enrollees names can be defined. Notice that this is a weak authentication method, because the enrollees names are publicly announced. After all, MAC address filtering is not appropriate because, if a persistent group is not active, MAC addresses are randomized.
 - When `dynamic_group` option is set to `True`, only a single station a time is accepted, because when a station disconnects, the group is removed by *hostp2pd* and any other connected station loses the session.
 
 # Logging
 
-Logging is configured in *hostp2pd.yaml*. This is in [Pyhton logging configuration format](https://docs.python.org/3/library/logging.config.html). By default, logs are saved in /var/log/hostp2pd.log, rolled into three files. Also, logs can be forced to a specific log level through the `force_logging` configuration attribute.
+Logging is configured in *hostp2pd.yaml*. This is in [Python logging configuration format](https://docs.python.org/3/library/logging.config.html). By default, logs are saved in /var/log/hostp2pd.log, rolled into three files. Also, logs can be forced to a specific log level through the `force_logging` configuration attribute.
 
 In interactive mode, logging can be changed using `loglevel`.
 
@@ -546,6 +546,37 @@ with hostp2pd as session:
     time.sleep(40) # example
 ```
 
+The following example browses the registered Wi-Fi Direct stations after collecting information for 40 seconds.
+
+```python
+from hostp2pd import HostP2pD
+import time
+
+with HostP2pD() as hostp2pd:
+    time.sleep(40)
+    if hostp2pd.addr_register:
+        print("Station addresses:")
+        for i in hostp2pd.addr_register:
+            print("  {} = {:35s} ({})".format(i,
+                    hostp2pd.addr_register[i],
+                    (hostp2pd.dev_type_register[i]
+                        if i in hostp2pd.dev_type_register
+                        else "(unknown device type)")
+                )
+            )
+
+print("Completed.")
+```
+
+Example of output:
+
+```ini
+Station addresses:
+  ae:e2:d3:41:27:14 = DIRECT-14-HP ENVY 5000 series       (Printer)
+  ee:11:6c:59:a3:d4 = DIRECT-Example                      (AP Network Infrastructure device)
+Completed.
+```
+
 ## Batch/daemon mode
 
 Batch/daemon mode does not need the Context Manager:
@@ -608,9 +639,9 @@ This is because *wpa_supplicant* does not expose *p2p-dev-wlan0* to *dbus*. It m
 
 If [NetworkManager](https://en.wikipedia.org/wiki/NetworkManager) is used to configure the network interfaces, it connects *wpa_supplicant* via *dbus* and the `-u` option is needed for appropriate interaction between the two programs. Anyway, NetworkManager does not manage P2P functions.
 
-*hostp2pd* relises on *wpa_cli* considering that:
+*hostp2pd* relies on *wpa_cli* considering that:
 
-- it is natively integrated with *wpa_supplicant* via proven and roboust communication method,
+- it is natively integrated with *wpa_supplicant* via proven and robust communication method,
 - it allows easy P2P commands and in parallel it outputs all needed real time events,
 - the consumed UNIX resources are very limited,
 - the resulting Python program is very simple to maintain.
@@ -633,7 +664,7 @@ Device supports randomizing MAC-addr in sched scans.
 
 MAC randomization prevents listeners from using MAC addresses to build a history of device activity, thus increasing user privacy.
 
-Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart: if a device supports MAC Randomization, restarting *wpa_supplicant* will change the local MAC address of the related virtual interface; a persistent group reinvoked with different MAC address denies the reuse of the saved group in the peer system.
+Anyway, when using persistent groups, MAC addresses shall not vary in order to avoid breaking the group restart: if a device supports MAC Randomization, restarting *wpa_supplicant* will change the local MAC address of the related virtual interface; a persistent group re-invoked with different MAC address denies the reuse of the saved group in the peer system.
 [This appears to be appropriately managed by Android devices](https://source.android.com/devices/tech/connect/wifi-direct#mac_randomization).
 
 A configuration strategy that appears to prevent MAC randomization with persistent groups might be the one mentioned [in a patch](http://w1.fi/cgit/hostap/commit/?id=9359cc8483eb84fbbb0a75cf64dcffd213fb412e) and it possibly only applicable to some nl80211 device drivers supporting it; so, for some devices, using `p2p_device_random_mac_addr=1` and `p2p_device_persistent_mac_addr=<mac address>` can do the job. Otherwise, the latest *wpa_supplicant* version might be needed, which [includes another patch](http://w1.fi/cgit/hostap/commit/?id=e79febb3f5b516f4027fba0a8a35be359c38cf9f) exploiting the usage of the `p2p_device_persistent_mac_addr` parameter with option `p2p_device_random_mac_addr=2`. Notice that also `update_config=1` is required.
@@ -680,7 +711,7 @@ p2p_device_random_mac_addr=0
 
 This is the default option and uses the MAC address set by the device driver.
 If the default is a static MAC address, this address is kept unaltered.
-If the device driver is configured by default to always use random MAC adresses,
+If the device driver is configured by default to always use random MAC addresses,
 this flag breaks reinvoking a persistent group (which needs reusing the same MAC
 address used during the group creation phase), so flags 1 or 2 should be used
 instead.
