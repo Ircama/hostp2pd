@@ -3,6 +3,7 @@ hostp2pd
 
 [![PyPI](https://img.shields.io/pypi/v/hostp2pd.svg?maxAge=2592000)](https://pypi.org/project/hostp2pd)
 [![Python Versions](https://img.shields.io/pypi/pyversions/hostp2pd.svg)](https://pypi.org/project/hostp2pd/)
+[![PyPI download month](https://img.shields.io/pypi/dm/hostp2pd.svg)](https://pypi.python.org/pypi/hostp2pd/)
 [![GitHub license](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-blue)](https://raw.githubusercontent.com/ircama/hostp2pd/master/LICENSE)
 
 __The Wi-Fi Direct Session Manager__
